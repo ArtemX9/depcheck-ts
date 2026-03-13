@@ -1,0 +1,76 @@
+{
+  "name": "depcheck-ts",
+  "version": "0.1.0",
+  "description": "TypeScript CLI tool and npm library that analyzes a project's dependencies for outdated packages, bundle size impact, license conflicts, and unused imports.",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/cli.ts",
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/ tests/",
+    "lint:fix": "eslint --fix src/ tests/",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "prepublishOnly": "npm run typecheck && npm run lint && npm run test && npm run build",
+    "release:patch": "npm version patch && git push --follow-tags",
+    "release:minor": "npm version minor && git push --follow-tags",
+    "release:major": "npm version major && git push --follow-tags"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ArtemX9/depcheck-ts.git"
+  },
+  "author": "Artem Trukhanov <artem@trukhanoff.dev",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ArtemX9/depcheck-ts/issues"
+  },
+  "keywords": [
+    "dependencies",
+    "audit",
+    "outdated",
+    "bundle-size",
+    "license",
+    "unused",
+    "cli",
+    "typescript",
+    "npm"
+  ],
+  "main": "./build/depcheck-ts.cjs",
+  "module": "./build/depcheck-ts.js",
+  "types": "./build/depcheck-ts.d.ts",
+  "exports": {
+    ".": {
+      "import": "./build/depcheck-ts.js",
+      "require": "./build/depcheck-ts.cjs",
+      "types": "./build/depcheck-ts.d.ts"
+    }
+  },
+  "bin": {
+    "depcheck-ts": "./build/cli.js"
+  },
+  "files": [
+    "build"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "homepage": "https://github.com/ArtemX9/depcheck-ts#readme",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.4.0",
+    "@vitest/coverage-v8": "^4.0.18",
+    "eslint": "^10.0.3",
+    "eslint-plugin-n": "^17.24.0",
+    "memfs": "^4.56.11",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.57.0",
+    "vitest": "^4.0.18"
+  },
+  "dependencies": {
+    "commander": "^14.0.3"
+  }
+}

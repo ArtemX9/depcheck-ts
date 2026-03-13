@@ -1,4 +1,4 @@
-# depcheck
+# depcheck-ts
 
 **TypeScript Dependency Health Checker**
 
@@ -15,39 +15,39 @@ Analyze your project's dependencies for outdated packages, bundle size impact, l
 
 ```bash
 # Global CLI
-npm install -g @artemx9/depcheck
+npm install -g @artemx9/depcheck-ts
 
 # Project dependency
-npm install --save-dev @artemx9/depcheck
+npm install --save-dev @artemx9/depcheck-ts
 ```
 
 ## CLI Usage
 
 ```bash
 # Analyze current project
-depcheck
+depcheck-ts
 
 # Analyze specific path
-depcheck --path ./my-project
+depcheck-ts --path ./my-project
 
 # JSON output (for CI)
-depcheck --format json
+depcheck-ts --format json
 
 # Markdown output (for PR comments)
-depcheck --format markdown > report.md
+depcheck-ts --format markdown > report.md
 
 # Only specific checks
-depcheck --outdated --bundle-size
+depcheck-ts --outdated --bundle-size
 
 # CI mode: exit code 1 if issues found
-depcheck --ci
+depcheck-ts --ci
 ```
 
 ### Sample Terminal Output
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                 depcheck report                   │
+│                 depcheck-ts report                   │
 ├─────────────────────────────────────────────────────┤
 │  47 dependencies analyzed                           │
 │  12 outdated · 3 heavy · 2 unused · 0 license issues│
@@ -79,7 +79,7 @@ depcheck --ci
 ## Library Usage
 
 ```typescript
-import { analyze } from '@artemx9/depcheck';
+import { analyze } from '@artemx9/depcheck-ts';
 
 const report = await analyze({
   path: './my-project',
@@ -116,11 +116,11 @@ console.log(report.score);       // 0-100 health score
 
 ```yaml
 - name: Dependency health check
-  run: npx @artemx9/depcheck --ci --format json > depcheck-report.json
+  run: npx @artemx9/depcheck-ts --ci --format json > depcheck-ts-report.json
 
 - name: Comment PR with report
   if: github.event_name == 'pull_request'
-  run: npx @artemx9/depcheck --format markdown >> $GITHUB_STEP_SUMMARY
+  run: npx @artemx9/depcheck-ts --format markdown >> $GITHUB_STEP_SUMMARY
 ```
 
 ## Tech Stack
@@ -137,7 +137,7 @@ console.log(report.score);       // 0-100 health score
 ## Project Structure
 
 ```
-depcheck/
+depcheck-ts/
 ├── src/
 │   ├── cli.ts                  # CLI entry point
 │   ├── index.ts                # Library entry point
@@ -151,8 +151,8 @@ depcheck/
 │   │   ├── json.ts
 │   │   └── markdown.ts
 │   └── types.ts
-├── bin/
-│   └── depcheck.js
+├── build/
+│   └── depcheck-ts.js
 ├── tests/
 │   ├── analyzers/
 │   ├── reporters/
@@ -164,8 +164,8 @@ depcheck/
 
 ```bash
 # Clone
-git clone https://github.com/ArtemX9/depcheck.git
-cd depcheck
+git clone https://github.com/ArtemX9/depcheck-ts.git
+cd depcheck-ts
 
 # Install
 npm install
@@ -174,7 +174,7 @@ npm install
 npm run build
 
 # Run locally
-node bin/depcheck.js --path ../some-project
+node build/depcheck-ts.js --path ../some-project
 
 # Tests
 npm test

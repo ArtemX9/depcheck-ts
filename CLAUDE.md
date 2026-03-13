@@ -2,13 +2,13 @@
 
 ## Project
 
-depcheck— TypeScript CLI tool and npm library that analyzes a project's dependencies for outdated packages, bundle size impact, license conflicts, and unused imports.
+depcheck-ts— TypeScript CLI tool and npm library that analyzes a project's dependencies for outdated packages, bundle size impact, license conflicts, and unused imports.
 
 ## Commands
 
 ```bash
 npm run build          # tsup: compile TS → dist/
-npm run dev            # tsup --watch
+npm run dev            # tsx watch src/cli.ts
 npm test               # vitest run
 npm run test:watch     # vitest
 npm run test:coverage  # vitest --coverage
@@ -17,8 +17,8 @@ npm run lint:fix       # eslint --fix
 npm run typecheck      # tsc --noEmit
 
 # Run CLI locally during development
-node dist/cli.js --path ../some-project
-node dist/cli.js --format json --ci
+node build/cli.js --path ../some-project
+node build/cli.js --format json --ci
 ```
 
 ## Architecture
