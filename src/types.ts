@@ -7,11 +7,17 @@ export interface AnalyzerOptions {
   includeDev?: boolean;
 }
 
+export enum VersionBump {
+  MAJOR = 'major',
+  MINOR = 'minor',
+  PATCH = 'patch',
+}
+
 export interface OutdatedPackage {
   name: string;
   current: string;
   latest: string;
-  type: 'major' | 'minor' | 'patch';
+  type: VersionBump;
   abandoned?: boolean;
 }
 
