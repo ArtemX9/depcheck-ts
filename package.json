@@ -53,6 +53,7 @@
   "files": [
     "build"
   ],
+  "engineStrict": true,
   "engines": {
     "node": ">=20.0.0"
   },

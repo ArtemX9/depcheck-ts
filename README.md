@@ -2,7 +2,8 @@
 
 **TypeScript Dependency Health Checker**
 
-Analyze your project's dependencies for outdated packages, bundle size impact, license conflicts, and unused imports. Works as a CLI tool or importable library. CI-friendly with JSON and Markdown output.
+Analyze your project's dependencies for outdated packages, bundle size impact, license conflicts, and unused imports.
+Works as a CLI tool or importable library. CI-friendly with JSON and Markdown output.
 
 ![Node.js](https://img.shields.io/badge/Node.js_20+-339933?logo=node.js&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
@@ -47,7 +48,7 @@ depcheck-ts --ci
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                 depcheck-ts report                   │
+│                 depcheck-ts report                  │
 ├─────────────────────────────────────────────────────┤
 │  47 dependencies analyzed                           │
 │  12 outdated · 3 heavy · 2 unused · 0 license issues│
@@ -79,11 +80,11 @@ depcheck-ts --ci
 ## Library Usage
 
 ```typescript
-import { analyze } from '@artemx9/depcheck-ts';
+import {analyze} from '@artemx9/depcheck-ts';
 
 const report = await analyze({
-  path: './my-project',
-  checks: ['outdated', 'bundleSize', 'licenses', 'unused'],
+    path: './my-project',
+    checks: ['outdated', 'bundleSize', 'licenses', 'unused'],
 });
 
 console.log(report.outdated);    // OutdatedPackage[]
@@ -95,20 +96,20 @@ console.log(report.score);       // 0-100 health score
 
 ## Checks
 
-| Check | Description | Data Source |
-|-------|-------------|-------------|
-| **Outdated** | Compare installed vs latest versions; flag abandoned packages (2+ years stale) | npm registry API |
-| **Bundle Size** | Gzipped size of each dependency; flag packages > 100KB; suggest lighter alternatives | bundlephobia API |
-| **Licenses** | Extract and categorize licenses; flag GPL in MIT projects | package.json + node_modules |
-| **Unused** | Static analysis of imports; detect declared-but-not-imported deps | Source file scanning |
+| Check           | Description                                                                          | Data Source                 |
+|-----------------|--------------------------------------------------------------------------------------|-----------------------------|
+| **Outdated**    | Compare installed vs latest versions; flag abandoned packages (2+ years stale)       | npm registry API            |
+| **Bundle Size** | Gzipped size of each dependency; flag packages > 100KB; suggest lighter alternatives | bundlephobia API            |
+| **Licenses**    | Extract and categorize licenses; flag GPL in MIT projects                            | package.json + node_modules |
+| **Unused**      | Static analysis of imports; detect declared-but-not-imported deps                    | Source file scanning        |
 
 ## Output Formats
 
-| Format | Flag | Use Case |
-|--------|------|----------|
-| **Terminal** | `--format terminal` (default) | Human-readable colored output |
-| **JSON** | `--format json` | CI pipelines, programmatic processing |
-| **Markdown** | `--format markdown` | GitHub PR comments, reports |
+| Format       | Flag                          | Use Case                              |
+|--------------|-------------------------------|---------------------------------------|
+| **Terminal** | `--format terminal` (default) | Human-readable colored output         |
+| **JSON**     | `--format json`               | CI pipelines, programmatic processing |
+| **Markdown** | `--format markdown`           | GitHub PR comments, reports           |
 
 ## CI Integration
 
@@ -125,14 +126,14 @@ console.log(report.score);       // 0-100 health score
 
 ## Tech Stack
 
-| Component | Technology |
-|-----------|-----------|
-| **Runtime** | Node.js 20+ · TypeScript |
-| **CLI** | Commander.js |
-| **Output** | chalk · cli-table3 |
-| **Build** | tsup |
-| **Testing** | Vitest · mock-fs |
-| **CI** | GitHub Actions (test + auto-publish on tag) |
+| Component   | Technology                                  |
+|-------------|---------------------------------------------|
+| **Runtime** | Node.js 20+ · TypeScript                    |
+| **CLI**     | Commander.js                                |
+| **Output**  | chalk · cli-table3                          |
+| **Build**   | tsup                                        |
+| **Testing** | Vitest · mock-fs                            |
+| **CI**      | GitHub Actions (test + auto-publish on tag) |
 
 ## Project Structure
 
