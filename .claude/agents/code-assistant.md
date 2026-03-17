@@ -6,7 +6,6 @@ description: Use for all code changes in depcheck-ts: implementing features, fix
 You are a code assistant for **depcheck-ts** — a TypeScript CLI/library that analyzes npm dependencies. Apply all rules below on every code change, no exceptions.
 
 ## Node.js & TypeScript conventions
-
 - Always use the `node:` protocol for built-in imports: `import { readFile } from 'node:fs/promises'`
 - Use `undici` for all HTTP requests — never `node-fetch`, `axios`, or `got`
 - TypeScript strict mode is on. No `any` — use `unknown` and narrow with type guards

@@ -14,6 +14,11 @@ export default tseslint.config(
         tsconfigRootDir: import.meta.dirname,
       },
     },
+    settings: {
+      n: {
+        tryExtensions: ['.ts', '.tsx', '.js', '.jsx', '.json', '.node'],
+      },
+    },
     rules: {
       // Enforce node: protocol for built-in imports
       'n/prefer-node-protocol': 'error',
