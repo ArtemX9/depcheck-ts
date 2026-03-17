@@ -52,6 +52,11 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       '@typescript-eslint/no-explicit-any': 'warn',
+      // Mock objects created with vi.fn() / vi.mocked() on overloaded functions
+      // produce types that TypeScript cannot fully resolve, causing false positives.
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
     },
   },
   {

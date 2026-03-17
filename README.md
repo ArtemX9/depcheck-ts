@@ -16,10 +16,10 @@ Works as a CLI tool or importable library. CI-friendly with JSON and Markdown ou
 
 ```bash
 # Global CLI
-npm install -g @artemx9/depcheck-ts
+npm install -g @trukhanoff/depcheck-ts
 
 # Project dependency
-npm install --save-dev @artemx9/depcheck-ts
+npm install --save-dev @trukhanoff/depcheck-ts
 ```
 
 ## CLI Usage
@@ -80,7 +80,7 @@ depcheck-ts --ci
 ## Library Usage
 
 ```typescript
-import {analyze} from '@artemx9/depcheck-ts';
+import {analyze} from '@trukhanoff/depcheck-ts';
 
 const report = await analyze({
     path: './my-project',
@@ -117,11 +117,11 @@ console.log(report.score);       // 0-100 health score
 
 ```yaml
 - name: Dependency health check
-  run: npx @artemx9/depcheck-ts --ci --format json > depcheck-ts-report.json
+  run: npx @trukhanoff/depcheck-ts --ci --format json > depcheck-ts-report.json
 
 - name: Comment PR with report
   if: github.event_name == 'pull_request'
-  run: npx @artemx9/depcheck-ts --format markdown >> $GITHUB_STEP_SUMMARY
+  run: npx @trukhanoff/depcheck-ts --format markdown >> $GITHUB_STEP_SUMMARY
 ```
 
 ## Tech Stack

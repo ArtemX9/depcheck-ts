@@ -1,5 +1,6 @@
 import type { FullReport, AnalyzerOptions, DependencyMap } from './types';
 import { analyze as analyzeOutdated } from './analyzers/outdated';
+import { analyze as analyzeUnused } from './analyzers/unused';
 
 async function runOutdatedAnalyzer(deps: DependencyMap, options: AnalyzerOptions) {
   return analyzeOutdated(deps, options);
@@ -16,8 +17,7 @@ async function runLicensesAnalyzer(deps: DependencyMap, options: AnalyzerOptions
 }
 
 async function runUnusedAnalyzer(deps: DependencyMap, options: AnalyzerOptions) {
-  console.log('Call [analyzers/unused.analyze]');
-  return { unused: [], missingFromPackageJson: [] };
+  return analyzeUnused(deps, options);
 }
 
 function readPackageJson(projectPath: string): { deps: DependencyMap; devDeps: DependencyMap } {
