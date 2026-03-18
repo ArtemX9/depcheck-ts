@@ -56,13 +56,7 @@ export async function run(argv: string[]): Promise<void> {
   await buildProgram().parseAsync(argv);
 }
 
-// Auto-parse when executed directly as a script (via bin entry point).
-// process.argv[1] is typed as string in @types/node — safe to use directly.
-const entryScript: string = process.argv[1] ?? '';
-if (
-  entryScript.endsWith('cli.ts') ||
-  entryScript.endsWith('cli.js') ||
-  entryScript.endsWith('cli.cjs')
-) {
+// Auto-parse when executed directly (works for both global install and local dev).
+if (typeof require !== 'undefined' && require.main === module) {
   void buildProgram().parseAsync(process.argv);
 }
