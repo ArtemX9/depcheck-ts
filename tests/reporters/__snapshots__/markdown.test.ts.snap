@@ -1,0 +1,210 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`formatMarkdown > analyzer errors section > matches snapshot with errors present 1`] = `
+"## Dependency Health Report
+
+**Health Score: 100 / 100** ![Health Score](https://img.shields.io/badge/health-100%2F100-brightgreen)
+
+### Outdated Packages
+
+No outdated packages found.
+
+### Bundle Size
+
+No heavy packages detected.
+
+### Licenses
+
+No license information available.
+
+### Unused Dependencies
+
+No unused dependencies found.
+
+### Analyzer Errors
+
+- **[outdated]** registry is down
+"
+`;
+
+exports[`formatMarkdown > bundle size section > matches snapshot with heavy bundle packages 1`] = `
+"## Dependency Health Report
+
+**Health Score: 70 / 100** ![Health Score](https://img.shields.io/badge/health-70%2F100-yellow)
+
+### Outdated Packages
+
+No outdated packages found.
+
+### Bundle Size
+
+Total gzip across analyzed packages: **70.3 kB**
+
+| Package | Gzip | Size | Alternative |
+| --- | --- | --- | --- |
+| \`moment\` | 70.3 kB | 283.2 kB | date-fns |
+
+### Licenses
+
+No license information available.
+
+### Unused Dependencies
+
+No unused dependencies found.
+"
+`;
+
+exports[`formatMarkdown > clean report matches snapshot 1`] = `
+"## Dependency Health Report
+
+**Health Score: 100 / 100** ![Health Score](https://img.shields.io/badge/health-100%2F100-brightgreen)
+
+### Outdated Packages
+
+No outdated packages found.
+
+### Bundle Size
+
+No heavy packages detected.
+
+### Licenses
+
+No license information available.
+
+### Unused Dependencies
+
+No unused dependencies found.
+"
+`;
+
+exports[`formatMarkdown > full report with data in every section matches snapshot 1`] = `
+"## Dependency Health Report
+
+**Health Score: 42 / 100** ![Health Score](https://img.shields.io/badge/health-42%2F100-red)
+
+### Outdated Packages
+
+| Package | Installed | Latest | Type | Abandoned |
+| --- | --- | --- | --- | --- |
+| \`lodash\` | 4.0.0 | 5.0.0 | 🔴 MAJOR | no |
+| \`express\` | 4.18.0 | 4.19.0 | 🟡 MINOR | no |
+| \`chalk\` | 5.3.0 | 5.3.1 | 🔵 PATCH | no |
+| \`old-lib\` | 1.0.0 | 2.0.0 | 🔴 MAJOR | yes |
+
+### Bundle Size
+
+Total gzip across analyzed packages: **71.5 kB**
+
+| Package | Gzip | Size | Alternative |
+| --- | --- | --- | --- |
+| \`moment\` | 70.3 kB | 283.2 kB | date-fns |
+
+### Licenses
+
+| Package | License | Status |
+| --- | --- | --- |
+| \`some-gpl-package\` | GPL-3.0 | conflict |
+| \`react\` | MIT | ok |
+
+> **1 license conflict(s) detected.**
+
+### Unused Dependencies
+
+**Declared but not imported:**
+
+- \`unused-package\`
+- \`another-unused\`
+
+**Imported but missing from package.json:**
+
+- \`missing-dep\`
+
+### Analyzer Errors
+
+- **[bundleSize]** bundlephobia API timed out
+- **[licenses]** Could not read node_modules
+"
+`;
+
+exports[`formatMarkdown > licenses section > matches snapshot with license conflicts 1`] = `
+"## Dependency Health Report
+
+**Health Score: 60 / 100** ![Health Score](https://img.shields.io/badge/health-60%2F100-yellow)
+
+### Outdated Packages
+
+No outdated packages found.
+
+### Bundle Size
+
+No heavy packages detected.
+
+### Licenses
+
+| Package | License | Status |
+| --- | --- | --- |
+| \`some-gpl-package\` | GPL-3.0 | conflict |
+| \`react\` | MIT | ok |
+
+> **1 license conflict(s) detected.**
+
+### Unused Dependencies
+
+No unused dependencies found.
+"
+`;
+
+exports[`formatMarkdown > outdated packages section > matches snapshot with only outdated section populated 1`] = `
+"## Dependency Health Report
+
+**Health Score: 75 / 100** ![Health Score](https://img.shields.io/badge/health-75%2F100-yellow)
+
+### Outdated Packages
+
+| Package | Installed | Latest | Type | Abandoned |
+| --- | --- | --- | --- | --- |
+| \`lodash\` | 4.0.0 | 5.0.0 | 🔴 MAJOR | no |
+
+### Bundle Size
+
+No heavy packages detected.
+
+### Licenses
+
+No license information available.
+
+### Unused Dependencies
+
+No unused dependencies found.
+"
+`;
+
+exports[`formatMarkdown > unused dependencies section > matches snapshot with unused and missing deps 1`] = `
+"## Dependency Health Report
+
+**Health Score: 80 / 100** ![Health Score](https://img.shields.io/badge/health-80%2F100-brightgreen)
+
+### Outdated Packages
+
+No outdated packages found.
+
+### Bundle Size
+
+No heavy packages detected.
+
+### Licenses
+
+No license information available.
+
+### Unused Dependencies
+
+**Declared but not imported:**
+
+- \`dead-dep\`
+- \`another-dead\`
+
+**Imported but missing from package.json:**
+
+- \`implicit-dep\`
+"
+`;

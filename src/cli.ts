@@ -1,10 +1,11 @@
 import { Command } from 'commander';
 import { analyze } from './index.js';
 import type { FullReport } from './types.js';
+import {formatTerminal} from './reporters/terminal';
+import {formatMarkdown} from './reporters/markdown';
 
 function reportTerminal(_report: FullReport): string {
-  console.log('Call [reporters/terminal.render]');
-  return '';
+  return formatTerminal(_report);
 }
 
 function reportJson(_report: FullReport): string {
@@ -13,8 +14,7 @@ function reportJson(_report: FullReport): string {
 }
 
 function reportMarkdown(_report: FullReport): string {
-  console.log('Call [reporters/markdown.render]');
-  return '';
+  return formatMarkdown(_report);
 }
 
 function buildProgram(): Command {

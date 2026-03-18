@@ -1,0 +1,14 @@
+{
+  "name": "e2e-fixture",
+  "version": "1.0.0",
+  "description": "Fixture project for end-to-end integration tests",
+  "dependencies": {
+    "express": "^4.18.0",
+    "lodash": "^4.17.21",
+    "chalk": "^4.1.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0"
+  }
+}

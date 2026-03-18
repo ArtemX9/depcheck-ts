@@ -108,24 +108,26 @@ describe('CLI – --path flag', () => {
 
 describe('CLI – --format flag', () => {
   it('writes terminal reporter output to stdout when --format terminal is set explicitly', async () => {
-    // The terminal reporter stub logs and returns '', so stdout.write is NOT
-    // called (the guard is `if (output)`).  We verify the reporter branch ran
-    // by asserting console.log was called with the stub marker.
-    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const stdoutWrite = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
     await run(argv('--format', 'terminal'));
 
-    expect(consoleLog).toHaveBeenCalledWith('Call [reporters/terminal.render]');
-    consoleLog.mockRestore();
+    // The real terminal reporter returns a non-empty string (health score line at minimum)
+    expect(stdoutWrite).toHaveBeenCalledOnce();
+    const written = stdoutWrite.mock.calls[0]?.[0] as string;
+    expect(written).toContain('Health Score:');
+    stdoutWrite.mockRestore();
   });
 
   it('defaults to the terminal reporter when --format is omitted', async () => {
-    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const stdoutWrite = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
     await run(argv());
 
-    expect(consoleLog).toHaveBeenCalledWith('Call [reporters/terminal.render]');
-    consoleLog.mockRestore();
+    expect(stdoutWrite).toHaveBeenCalledOnce();
+    const written = stdoutWrite.mock.calls[0]?.[0] as string;
+    expect(written).toContain('Health Score:');
+    stdoutWrite.mockRestore();
   });
 
   it('uses the JSON reporter when --format json is supplied', async () => {
@@ -138,21 +140,25 @@ describe('CLI – --format flag', () => {
   });
 
   it('uses the markdown reporter when --format markdown is supplied', async () => {
-    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const stdoutWrite = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
     await run(argv('--format', 'markdown'));
 
-    expect(consoleLog).toHaveBeenCalledWith('Call [reporters/markdown.render]');
-    consoleLog.mockRestore();
+    expect(stdoutWrite).toHaveBeenCalledOnce();
+    const written = stdoutWrite.mock.calls[0]?.[0] as string;
+    expect(written).toContain('## Dependency Health Report');
+    stdoutWrite.mockRestore();
   });
 
   it('falls back to terminal reporter for an unrecognised format value', async () => {
-    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const stdoutWrite = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
     await run(argv('--format', 'xml'));
 
-    expect(consoleLog).toHaveBeenCalledWith('Call [reporters/terminal.render]');
-    consoleLog.mockRestore();
+    expect(stdoutWrite).toHaveBeenCalledOnce();
+    const written = stdoutWrite.mock.calls[0]?.[0] as string;
+    expect(written).toContain('Health Score:');
+    stdoutWrite.mockRestore();
   });
 });
 
@@ -161,21 +167,18 @@ describe('CLI – --format flag', () => {
 // ---------------------------------------------------------------------------
 
 describe('CLI – stdout write', () => {
-  it('writes reporter output followed by newline when output is non-empty', async () => {
-    // Override analyze so we can craft a report; the reporter stubs return ''
-    // so we need to intercept at a lower level.  We spy on process.stdout.write
-    // to capture whatever is sent.
+  it('writes reporter output followed by a trailing newline', async () => {
     const stdoutWrite = vi
       .spyOn(process.stdout, 'write')
       .mockImplementation(() => true);
 
-    // The built-in stubs return empty strings, so stdout.write won't be called.
-    // This test verifies that when output IS non-empty it arrives with '\n'.
-    // We cannot change the reporter stubs without refactoring cli.ts further,
-    // so we assert the negative: stdout.write is NOT called for empty output.
     await run(argv());
 
-    expect(stdoutWrite).not.toHaveBeenCalled();
+    // The real terminal reporter always returns a non-empty string
+    expect(stdoutWrite).toHaveBeenCalledOnce();
+    const written = stdoutWrite.mock.calls[0]?.[0] as string;
+    // cli.ts appends '\n' after the reporter output
+    expect(written.endsWith('\n')).toBe(true);
     stdoutWrite.mockRestore();
   });
 });
