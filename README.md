@@ -16,10 +16,10 @@ Works as a CLI tool or importable library. CI-friendly with JSON and Markdown ou
 
 ```bash
 # Global CLI
-npm install -g @trukhanoff/depcheck-ts
+npm install -g depcheck-ts
 
 # Project dependency
-npm install --save-dev @trukhanoff/depcheck-ts
+npm install --save-dev depcheck-ts
 ```
 
 ## CLI Usage
@@ -80,18 +80,16 @@ depcheck-ts --ci
 ## Library Usage
 
 ```typescript
-import {analyze} from '@trukhanoff/depcheck-ts';
+import { analyze } from 'depcheck-ts';
 
-const report = await analyze({
-    path: './my-project',
-    checks: ['outdated', 'bundleSize', 'licenses', 'unused'],
-});
+const report = await analyze({ projectPath: './my-project' });
 
 console.log(report.outdated);    // OutdatedPackage[]
-console.log(report.bundleSize);  // BundleSizeEntry[]
-console.log(report.licenses);    // LicenseEntry[]
-console.log(report.unused);      // string[]
+console.log(report.bundleSize);  // BundleSizeReport
+console.log(report.licenses);    // LicenseReport
+console.log(report.unused);      // UnusedReport
 console.log(report.score);       // 0-100 health score
+console.log(report.errors);      // AnalyzerError[]
 ```
 
 ## Checks
@@ -117,11 +115,11 @@ console.log(report.score);       // 0-100 health score
 
 ```yaml
 - name: Dependency health check
-  run: npx @trukhanoff/depcheck-ts --ci --format json > depcheck-ts-report.json
+  run: npx depcheck-ts --ci --format json > depcheck-ts-report.json
 
 - name: Comment PR with report
   if: github.event_name == 'pull_request'
-  run: npx @trukhanoff/depcheck-ts --format markdown >> $GITHUB_STEP_SUMMARY
+  run: npx depcheck-ts --format markdown >> $GITHUB_STEP_SUMMARY
 ```
 
 ## Tech Stack

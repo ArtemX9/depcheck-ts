@@ -15,7 +15,8 @@
     "prepublishOnly": "npm run typecheck && npm run lint && npm run test && npm run build",
     "release:patch": "npm version patch && git push --follow-tags",
     "release:minor": "npm version minor && git push --follow-tags",
-    "release:major": "npm version major && git push --follow-tags"
+    "release:major": "npm version major && git push --follow-tags",
+    "benchmark": "tsx benchmark/run.ts"
   },
   "repository": {
     "type": "git",
