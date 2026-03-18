@@ -27,11 +27,12 @@ function makeOptions(override?: Partial<AnalyzerOptions>): AnalyzerOptions {
 
 /**
  * Build a minimal Dirent-like plain object suitable for the mocked readdir.
- * We use `unknown` casts throughout since we only need the subset of fields
- * that the analyzer actually reads (name, isFile, isDirectory).
+ * The analyzer only reads `name`, `isFile()`, and `isDirectory()`.
+ * We cast through `unknown` to satisfy the exact Dirent generic TypeScript
+ * infers from the overloaded `readdir` signature.
  */
-function dirent(name: string, type: 'file' | 'dir'): unknown {
-  return {
+function dirent(name: string, type: 'file' | 'dir') {
+  const obj = {
     name,
     isFile: () => type === 'file',
     isDirectory: () => type === 'dir',
@@ -43,6 +44,7 @@ function dirent(name: string, type: 'file' | 'dir'): unknown {
     path: '',
     parentPath: '',
   };
+  return obj as unknown as Awaited<ReturnType<typeof readdir>>[number];
 }
 
 /** Make readdir return a flat list of source files in the project root. */

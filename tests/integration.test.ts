@@ -33,14 +33,32 @@ vi.mock('../src/analyzers/unused', () => ({
   analyze: vi.fn(),
 }));
 
+vi.mock('../src/analyzers/bundleSize', () => ({
+  analyze: vi.fn(),
+}));
+
+vi.mock('../src/analyzers/licenses', () => ({
+  analyze: vi.fn(),
+}));
+
+vi.mock('../src/utils/parser', () => ({
+  readPackageJson: vi.fn(),
+}));
+
 import { analyze as analyzeOutdated } from '../src/analyzers/outdated';
 import { analyze as analyzeUnused } from '../src/analyzers/unused';
+import { analyze as analyzeBundleSize } from '../src/analyzers/bundleSize';
+import { analyze as analyzeLicenses } from '../src/analyzers/licenses';
+import { readPackageJson } from '../src/utils/parser';
 import { analyze } from '../src/index';
 import { formatTerminal } from '../src/reporters/terminal';
 import { formatMarkdown } from '../src/reporters/markdown';
 
 const mockOutdated = vi.mocked(analyzeOutdated);
 const mockUnused = vi.mocked(analyzeUnused);
+const mockBundleSize = vi.mocked(analyzeBundleSize);
+const mockLicenses = vi.mocked(analyzeLicenses);
+const mockReadPackageJson = vi.mocked(readPackageJson);
 
 // ---------------------------------------------------------------------------
 // Fixture path
@@ -89,8 +107,17 @@ const options: AnalyzerOptions = { projectPath: FIXTURE_PATH };
 beforeEach(() => {
   mockOutdated.mockReset();
   mockUnused.mockReset();
+  mockBundleSize.mockReset();
+  mockLicenses.mockReset();
+  mockReadPackageJson.mockReset();
   mockOutdated.mockResolvedValue(outdatedPackages);
   mockUnused.mockResolvedValue(unusedReport);
+  mockBundleSize.mockResolvedValue({ packages: [], totalGzip: 0, errors: [] });
+  mockLicenses.mockResolvedValue({ packages: [], conflicts: [] });
+  mockReadPackageJson.mockResolvedValue({
+    deps: { express: '^4.18.0', lodash: '^4.17.21', chalk: '^4.1.2' },
+    devDeps: { typescript: '^5.0.0', vitest: '^1.0.0' },
+  });
 });
 
 // ---------------------------------------------------------------------------

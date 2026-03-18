@@ -21,7 +21,7 @@
     "type": "git",
     "url": "git+https://github.com/ArtemX9/depcheck-ts.git"
   },
-  "author": "Artem Trukhanov <artem@trukhanoff.dev",
+  "author": "Artem Trukhanov <artem@trukhanoff.dev>",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/ArtemX9/depcheck-ts/issues"

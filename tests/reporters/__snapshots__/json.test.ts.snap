@@ -1,0 +1,120 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`formatJson > clean report (no issues) matches snapshot 1`] = `
+"{
+  "outdated": [],
+  "bundleSize": {
+    "packages": [],
+    "totalGzip": 0
+  },
+  "licenses": {
+    "packages": [],
+    "conflicts": []
+  },
+  "unused": {
+    "unused": [],
+    "missingFromPackageJson": []
+  },
+  "score": 100,
+  "errors": []
+}"
+`;
+
+exports[`formatJson > full report with data in every section matches snapshot 1`] = `
+"{
+  "outdated": [
+    {
+      "name": "lodash",
+      "current": "4.0.0",
+      "latest": "5.0.0",
+      "type": "major",
+      "abandoned": false
+    },
+    {
+      "name": "express",
+      "current": "4.18.0",
+      "latest": "4.19.0",
+      "type": "minor",
+      "abandoned": false
+    },
+    {
+      "name": "chalk",
+      "current": "5.3.0",
+      "latest": "5.3.1",
+      "type": "patch",
+      "abandoned": false
+    },
+    {
+      "name": "old-lib",
+      "current": "1.0.0",
+      "latest": "2.0.0",
+      "type": "major",
+      "abandoned": true
+    }
+  ],
+  "bundleSize": {
+    "packages": [
+      {
+        "name": "moment",
+        "version": "2.30.1",
+        "gzip": 72000,
+        "size": 290000,
+        "heavy": true,
+        "alternative": "date-fns"
+      },
+      {
+        "name": "tiny-lib",
+        "version": "1.0.0",
+        "gzip": 1200,
+        "size": 3500,
+        "heavy": false
+      }
+    ],
+    "totalGzip": 73200
+  },
+  "licenses": {
+    "packages": [
+      {
+        "name": "some-gpl-package",
+        "version": "1.0.0",
+        "license": "GPL-3.0",
+        "conflict": true
+      },
+      {
+        "name": "react",
+        "version": "18.0.0",
+        "license": "MIT",
+        "conflict": false
+      }
+    ],
+    "conflicts": [
+      {
+        "name": "some-gpl-package",
+        "version": "1.0.0",
+        "license": "GPL-3.0",
+        "conflict": true
+      }
+    ]
+  },
+  "unused": {
+    "unused": [
+      "unused-package",
+      "another-unused"
+    ],
+    "missingFromPackageJson": [
+      "missing-dep"
+    ]
+  },
+  "score": 42,
+  "errors": [
+    {
+      "analyzer": "bundleSize",
+      "message": "bundlephobia API timed out"
+    },
+    {
+      "analyzer": "licenses",
+      "message": "Could not read node_modules"
+    }
+  ]
+}"
+`;

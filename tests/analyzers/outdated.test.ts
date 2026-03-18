@@ -14,7 +14,7 @@ const mockFetch = vi.mocked(fetchPackageInfo);
 const options = { projectPath: faker.system.directoryPath() };
 
 function semver(major: number, minor: number, patch: number): string {
-  return `${major}.${minor}.${patch}`;
+  return `${String(major)}.${String(minor)}.${String(patch)}`;
 }
 
 function bump(version: string, type: VersionBump): string {

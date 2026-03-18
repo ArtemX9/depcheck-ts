@@ -4,6 +4,8 @@
     "module": "commonjs",
     "outDir": "./build",
     "strict": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "allowImportingTsExtensions": true,
+    "skipLibCheck": true
   }
 }

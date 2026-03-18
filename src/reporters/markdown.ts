@@ -12,11 +12,12 @@ import { VersionBump } from '../types.js';
 // ---------------------------------------------------------------------------
 
 function scoreBadge(score: number): string {
+  const s = String(score);
   if (score >= 80)
-    return `![Health Score](https://img.shields.io/badge/health-${score}%2F100-brightgreen)`;
+    return `![Health Score](https://img.shields.io/badge/health-${s}%2F100-brightgreen)`;
   if (score >= 50)
-    return `![Health Score](https://img.shields.io/badge/health-${score}%2F100-yellow)`;
-  return `![Health Score](https://img.shields.io/badge/health-${score}%2F100-red)`;
+    return `![Health Score](https://img.shields.io/badge/health-${s}%2F100-yellow)`;
+  return `![Health Score](https://img.shields.io/badge/health-${s}%2F100-red)`;
 }
 
 function bumpLabel(type: VersionBump): string {
@@ -45,7 +46,7 @@ function mdTableHeader(headers: string[]): string {
 // ---------------------------------------------------------------------------
 
 function renderScore(score: number): string {
-  return `## Dependency Health Report\n\n**Health Score: ${score} / 100** ${scoreBadge(score)}`;
+  return `## Dependency Health Report\n\n**Health Score: ${String(score)} / 100** ${scoreBadge(score)}`;
 }
 
 function renderOutdated(packages: OutdatedPackage[]): string {
@@ -128,7 +129,7 @@ function renderLicenses(conflicts: LicenseEntry[], all: LicenseEntry[]): string 
 
   if (conflicts.length > 0) {
     lines.push('');
-    lines.push(`> **${conflicts.length} license conflict(s) detected.**`);
+    lines.push(`> **${String(conflicts.length)} license conflict(s) detected.**`);
   }
 
   return lines.join('\n');

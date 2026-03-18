@@ -10,10 +10,16 @@ vi.mock('../src/analyzers/outdated', () => ({
   analyze: vi.fn(),
 }));
 
+vi.mock('../src/utils/parser', () => ({
+  readPackageJson: vi.fn(),
+}));
+
 import { analyze as analyzeOutdated } from '../src/analyzers/outdated';
+import { readPackageJson } from '../src/utils/parser';
 import { analyze } from '../src/index';
 
 const mockAnalyzeOutdated = vi.mocked(analyzeOutdated);
+const mockReadPackageJson = vi.mocked(readPackageJson);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -40,6 +46,8 @@ function makeOutdatedPackage(override?: Partial<OutdatedPackage>): OutdatedPacka
 
 beforeEach(() => {
   mockAnalyzeOutdated.mockReset();
+  mockReadPackageJson.mockReset();
+  mockReadPackageJson.mockResolvedValue({ deps: {}, devDeps: {} });
 });
 
 // ---------------------------------------------------------------------------

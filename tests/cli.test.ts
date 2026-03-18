@@ -131,12 +131,16 @@ describe('CLI – --format flag', () => {
   });
 
   it('uses the JSON reporter when --format json is supplied', async () => {
-    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const stdoutWrite = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
     await run(argv('--format', 'json'));
 
-    expect(consoleLog).toHaveBeenCalledWith('Call [reporters/json.render]');
-    consoleLog.mockRestore();
+    expect(stdoutWrite).toHaveBeenCalledOnce();
+    const written = stdoutWrite.mock.calls[0]?.[0] as string;
+    // The real JSON reporter emits valid JSON containing the score field.
+    const parsed = JSON.parse(written) as Record<string, unknown>;
+    expect(parsed).toHaveProperty('score');
+    stdoutWrite.mockRestore();
   });
 
   it('uses the markdown reporter when --format markdown is supplied', async () => {

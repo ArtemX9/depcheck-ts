@@ -1,16 +1,16 @@
 import { Command } from 'commander';
 import { analyze } from './index.js';
-import type { FullReport } from './types.js';
-import {formatTerminal} from './reporters/terminal';
-import {formatMarkdown} from './reporters/markdown';
+import type { FullReport } from './types.ts';
+import {formatTerminal} from './reporters/terminal.ts';
+import {formatMarkdown} from './reporters/markdown.ts';
+import {formatJson} from './reporters/json';
 
 function reportTerminal(_report: FullReport): string {
   return formatTerminal(_report);
 }
 
 function reportJson(_report: FullReport): string {
-  console.log('Call [reporters/json.render]');
-  return '';
+  return formatJson(_report);
 }
 
 function reportMarkdown(_report: FullReport): string {
@@ -44,6 +44,7 @@ function buildProgram(): Command {
       if (output) process.stdout.write(output + '\n');
 
       if (opts.ci && report.score < 100) {
+        // eslint-disable-next-line n/no-process-exit
         process.exit(1);
       }
     });

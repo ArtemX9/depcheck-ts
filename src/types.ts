@@ -13,6 +13,12 @@ export enum VersionBump {
   PATCH = 'patch',
 }
 
+export enum LicenseCategory {
+  Permissive = 'permissive',
+  Copyleft = 'copyleft',
+  Unknown = 'unknown',
+}
+
 export interface OutdatedPackage {
   name: string;
   current: string;

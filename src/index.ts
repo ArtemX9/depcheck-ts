@@ -1,37 +1,58 @@
 import type { FullReport, AnalyzerOptions, DependencyMap } from './types';
-import { analyze as analyzeOutdated } from './analyzers/outdated';
-import { analyze as analyzeUnused } from './analyzers/unused';
+import { VersionBump } from './types';
+import { analyze as analyzeOutdated } from './analyzers/outdated.ts';
+import { analyze as analyzeUnused } from './analyzers/unused.ts';
+import { analyze as analyzeLicenses } from './analyzers/licenses.ts';
+import { analyze as analyzeBundleSize } from './analyzers/bundleSize.ts';
+import { readPackageJson } from './utils/parser.ts';
 
 async function runOutdatedAnalyzer(deps: DependencyMap, options: AnalyzerOptions) {
   return analyzeOutdated(deps, options);
 }
 
 async function runBundleSizeAnalyzer(deps: DependencyMap, options: AnalyzerOptions) {
-  console.log('Call [analyzers/bundleSize.analyze]');
-  return { packages: [], totalGzip: 0 };
+  return analyzeBundleSize(deps, options);
 }
 
 async function runLicensesAnalyzer(deps: DependencyMap, options: AnalyzerOptions) {
-  console.log('Call [analyzers/licenses.analyze]');
-  return { packages: [], conflicts: [] };
+  return analyzeLicenses(deps, options);
 }
 
 async function runUnusedAnalyzer(deps: DependencyMap, options: AnalyzerOptions) {
   return analyzeUnused(deps, options);
 }
 
-function readPackageJson(projectPath: string): { deps: DependencyMap; devDeps: DependencyMap } {
-  console.log('Call [utils/parser.readPackageJson]');
-  return { deps: {}, devDeps: {} };
-}
-
 function calculateScore(report: Omit<FullReport, 'score' | 'errors'>): number {
-  console.log('Call [calculateScore]');
-  return 100;
+  let penalty = 0;
+
+  for (const pkg of report.outdated) {
+    if (pkg.abandoned === true) {
+      penalty += 3;
+    }
+    if (pkg.type === VersionBump.MAJOR) {
+      penalty += 5;
+    } else if (pkg.type === VersionBump.MINOR) {
+      penalty += 2;
+    } else {
+      penalty += 0.5;
+    }
+  }
+
+  penalty += report.licenses.conflicts.length * 10;
+
+  penalty += report.unused.unused.length * 4;
+
+  for (const entry of report.bundleSize.packages) {
+    if (entry.heavy) {
+      penalty += 3;
+    }
+  }
+
+  return Math.max(0, 100 - penalty);
 }
 
 export async function analyze(options: AnalyzerOptions): Promise<FullReport> {
-  const { deps, devDeps } = readPackageJson(options.projectPath);
+  const { deps, devDeps } = await readPackageJson(options.projectPath);
   const allDeps: DependencyMap = { ...deps, ...devDeps };
 
   const errors: FullReport['errors'] = [];
