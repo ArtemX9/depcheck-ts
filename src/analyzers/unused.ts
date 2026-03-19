@@ -105,7 +105,64 @@ async function collectSourceFiles(dir: string): Promise<string[]> {
   return results;
 }
 
-async function extractAllImports(files: string[]): Promise<Set<string>> {
+/**
+ * Reads tsconfig.json (falling back to jsconfig.json) at the given project
+ * path and extracts the path alias prefixes defined in compilerOptions.paths.
+ *
+ * For example `{ "@/*": ["./src/*"] }` yields the prefix `"@/"`.
+ * A key without a wildcard (e.g. `"@"`) is returned as-is.
+ *
+ * Returns an empty Set on any error (missing file, invalid JSON, etc.).
+ */
+async function readPathAliases(projectPath: string): Promise<Set<string>> {
+  const candidates = ['tsconfig.json', 'jsconfig.json'];
+
+  for (const filename of candidates) {
+    const filePath = join(projectPath, filename);
+    try {
+      const raw = await readFile(filePath, 'utf-8');
+      // tsconfig uses JSONC — strip single-line and multi-line comments
+      const stripped = raw
+        .replace(/\/\/[^\n]*/g, '')
+        .replace(/\/\*[\s\S]*?\*\//g, '');
+      const parsed: unknown = JSON.parse(stripped);
+
+      if (
+        typeof parsed !== 'object' ||
+        parsed === null ||
+        !('compilerOptions' in parsed)
+      ) {
+        continue;
+      }
+
+      const compilerOptions = (parsed as Record<string, unknown>).compilerOptions;
+      if (
+        typeof compilerOptions !== 'object' ||
+        compilerOptions === null ||
+        !('paths' in compilerOptions)
+      ) {
+        continue;
+      }
+
+      const paths = (compilerOptions as Record<string, unknown>).paths;
+      if (typeof paths !== 'object' || paths === null) {
+        continue;
+      }
+
+      const aliases = new Set<string>();
+      for (const key of Object.keys(paths)) {
+        aliases.add(key.endsWith('/*') ? key.slice(0, -1) : key);
+      }
+      return aliases;
+    } catch {
+      // File missing or unreadable — try next candidate
+    }
+  }
+
+  return new Set<string>();
+}
+
+async function extractAllImports(files: string[], pathAliases: Set<string>): Promise<Set<string>> {
   const packageNames = new Set<string>();
 
   await Promise.all(
@@ -120,6 +177,8 @@ async function extractAllImports(files: string[]): Promise<Set<string>> {
       for (const specifier of extractImportsFromSource(source)) {
         // Skip relative imports and node: builtins
         if (specifier.startsWith('.') || specifier.startsWith('node:')) continue;
+        // Skip TypeScript path aliases (e.g. @/App, ~/utils)
+        if ([...pathAliases].some((prefix) => specifier.startsWith(prefix))) continue;
         packageNames.add(extractPackageName(specifier));
       }
     }),
@@ -139,7 +198,8 @@ export async function analyze(
   }
 
   const files = await collectSourceFiles(options.projectPath);
-  const usedPackages = await extractAllImports(files);
+  const pathAliases = await readPathAliases(options.projectPath);
+  const usedPackages = await extractAllImports(files, pathAliases);
 
   const unused: string[] = declaredNames
     .filter((name) => !isImplicitlyUsed(name))

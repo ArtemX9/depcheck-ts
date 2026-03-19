@@ -435,6 +435,80 @@ describe('unused', () => {
   });
 
   // -------------------------------------------------------------------------
+  // tsconfig path aliases
+  // -------------------------------------------------------------------------
+
+  describe('tsconfig path aliases', () => {
+    it('does not report path alias imports (wildcard) as missingFromPackageJson', async () => {
+      setupSingleDir('/fake/project', ['app.ts']);
+      mockReadFile.mockImplementation((path: unknown) => {
+        const p = path as string;
+        if (p.endsWith('tsconfig.json')) {
+          return Promise.resolve(
+            JSON.stringify({
+              compilerOptions: {
+                paths: {
+                  '@/*': ['./src/*'],
+                },
+              },
+            }),
+          );
+        }
+        // Source file imports two path-aliased modules
+        return Promise.resolve(
+          "import App from '@/App';\nimport Button from '@/components/Button';\n",
+        );
+      });
+
+      const result = await analyze(deps('react'), makeOptions());
+
+      expect(result.missingFromPackageJson).not.toContain('@/App');
+      expect(result.missingFromPackageJson).not.toContain('@/components/Button');
+    });
+
+    it('falls back to empty aliases and processes normal imports when tsconfig cannot be read', async () => {
+      setupSingleDir('/fake/project', ['app.ts']);
+      mockReadFile.mockImplementation((path: unknown) => {
+        const p = path as string;
+        if (p.endsWith('tsconfig.json') || p.endsWith('jsconfig.json')) {
+          return Promise.reject(new Error('ENOENT: no such file or directory'));
+        }
+        return Promise.resolve("import lodash from 'lodash';\n");
+      });
+
+      const result = await analyze(deps('lodash'), makeOptions());
+
+      expect(result.unused).not.toContain('lodash');
+      expect(result.missingFromPackageJson).toEqual([]);
+    });
+
+    it('filters path aliases without wildcard (exact key)', async () => {
+      setupSingleDir('/fake/project', ['app.ts']);
+      mockReadFile.mockImplementation((path: unknown) => {
+        const p = path as string;
+        if (p.endsWith('tsconfig.json')) {
+          return Promise.resolve(
+            JSON.stringify({
+              compilerOptions: {
+                paths: {
+                  '@': ['./src'],
+                },
+              },
+            }),
+          );
+        }
+        return Promise.resolve("import utils from '@/helpers';\nimport root from '@';\n");
+      });
+
+      const result = await analyze(deps('some-pkg'), makeOptions());
+
+      // '@' alias (no wildcard) — exact key is used as prefix so '@' matches '@' and '@/helpers'
+      expect(result.missingFromPackageJson).not.toContain('@');
+      expect(result.missingFromPackageJson).not.toContain('@/helpers');
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // Multiple source file extensions
   // -------------------------------------------------------------------------
 
@@ -453,12 +527,17 @@ describe('unused', () => {
 
     it('ignores non-source files like .json', async () => {
       setupSingleDir('/fake/project', ['config.json']);
-      // readFile should never be called for .json files
+      // readFile may be called for tsconfig.json/jsconfig.json lookup, but
+      // config.json (a non-source file in the project tree) must never be read.
       mockReadFile.mockResolvedValue('{}');
 
       const result = await analyze(deps('lodash'), makeOptions());
 
-      expect(mockReadFile).not.toHaveBeenCalled();
+      const readPaths = mockReadFile.mock.calls.map((c) => c[0] as string);
+      const sourceJsonReads = readPaths.filter(
+        (p) => !p.endsWith('tsconfig.json') && !p.endsWith('jsconfig.json'),
+      );
+      expect(sourceJsonReads).toEqual([]);
       expect(result.unused).toContain('lodash');
     });
   });
