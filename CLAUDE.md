@@ -27,11 +27,20 @@ node build/cli.js --format json --ci
 src/
 ├── cli.ts              # CLI entry (Commander.js). Parses flags, calls analyze(), pipes to reporter.
 ├── index.ts            # Library entry. Exports analyze() for programmatic use.
-├── analyzers/          # Each analyzer is independent. All run in parallel via Promise.all.
-│   ├── outdated.ts     # Hits npm registry API, compares installed vs latest versions.
-│   ├── bundleSize.ts   # Hits bundlephobia API, flags heavy packages, suggests alternatives.
-│   ├── licenses.ts     # Reads node_modules/*/package.json, categorizes licenses, flags conflicts.
-│   └── unused.ts       # Globs source files, extracts imports via regex, diffs against declared deps.
+├── analyzers/          # Each analyzer lives in its own subdirectory. All run in parallel via Promise.all.
+│   ├── outdated/
+│   │   └── index.ts   # Hits npm registry API, compares installed vs latest versions.
+│   ├── bundleSize/
+│   │   ├── index.ts   # Hits bundlephobia API, flags heavy packages, suggests alternatives.
+│   │   └── constants.ts # HEAVY_THRESHOLD_BYTES, ALTERNATIVES map.
+│   ├── licenses/
+│   │   ├── index.ts   # Reads node_modules/*/package.json, categorizes licenses, flags conflicts.
+│   │   ├── constants.ts # PERMISSIVE_LICENSES, COPYLEFT_PREFIXES.
+│   │   └── utils.ts   # categorize(), isPermissive(), isCopyleft(), isRawPackageJson().
+│   └── unused/
+│       ├── index.ts   # Globs source files, extracts imports via regex, diffs against declared deps.
+│       ├── constants.ts # IMPLICITLY_USED, NODE_BUILTINS, SOURCE_EXTENSIONS, SKIP_DIRS, regexes.
+│       └── utils.ts   # isImplicitlyUsed(), extractImportsFromSource().
 ├── reporters/          # Each reporter takes a FullReport and returns a formatted string.
 │   ├── terminal.ts     # chalk + cli-table3 colored output.
 │   ├── json.ts         # JSON.stringify with structure.
@@ -58,7 +67,7 @@ Key data flow: `CLI → parse flags → read package.json → Promise.all(analyz
 
 ## Testing
 
-- Tests live in `tests/` mirroring `src/` structure: `tests/analyzers/outdated.test.ts`, etc.
+- Tests live in `tests/` mirroring `src/` structure: `tests/analyzers/outdated/index.test.ts`, `tests/analyzers/bundleSize/index.test.ts`, etc.
 - Use vitest. Mock HTTP calls — never hit real npm registry or bundlephobia in tests.
 - Fixture projects live in `tests/fixtures/`. Each fixture is a minimal fake project directory with a `package.json` and optionally source files + a `node_modules/` stub.
 - Every analyzer must have tests covering: happy path, empty dependencies, malformed data, network failure.
@@ -88,8 +97,8 @@ When adding or modifying analyzer return types, always update `types.ts` first, 
 
 - Package name extraction from imports: `lodash/debounce` → `lodash`. Scoped: `@babel/core/lib/thing` → `@babel/core`. See `utils/packageName.ts`.
 - `devDependencies` are excluded from the bundle size analyzer (they're not shipped). They are included in outdated, license, and unused checks.
-- The unused analyzer has a built-in ignore list for implicitly used packages (TypeScript, @types/*, eslint, prettier, tailwindcss, husky, lint-staged, etc.). This list lives as a constant in `analyzers/unused.ts`.
-- The alternative suggestions table for heavy packages is a static map in `analyzers/bundleSize.ts`. Add to it when common heavy→light swaps are well-known.
+- The unused analyzer has a built-in ignore list for implicitly used packages (TypeScript, @types/*, eslint, prettier, tailwindcss, husky, lint-staged, etc.). This list lives as a constant in `analyzers/unused/constants.ts`.
+- The alternative suggestions table for heavy packages is a static map in `analyzers/bundleSize/constants.ts`. Add to it when common heavy→light swaps are well-known.
 - Lock file parsing: support both `package-lock.json` (npm) and `yarn.lock` (yarn). Fall back to `node_modules/{pkg}/package.json` if no lock file exists.
 - Health score weights: license conflicts (−10), unused deps (−4), major outdated (−5), minor outdated (−2), patch outdated (−0.5), abandoned (−3), heavy bundle (−3). Floor at 0.
 

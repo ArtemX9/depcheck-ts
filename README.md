@@ -1,16 +1,6 @@
 # depcheck-ts
 
-**TypeScript Dependency Health Checker**
-
-Analyze your project's dependencies for outdated packages, bundle size impact, license conflicts, and unused imports.
-Works as a CLI tool or importable library. CI-friendly with JSON and Markdown output.
-
-![Node.js](https://img.shields.io/badge/Node.js_20+-339933?logo=node.js&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
-![npm](https://img.shields.io/badge/npm-CB3837?logo=npm&logoColor=white)
-
-<!-- TODO: Add terminal screenshot here -->
-<!-- ![Terminal Output](./docs/terminal-output.png) -->
+TypeScript CLI tool and npm library that analyzes a project's npm dependencies for outdated packages, bundle size impact, license conflicts, and unused imports.
 
 ## Install
 
@@ -18,174 +8,82 @@ Works as a CLI tool or importable library. CI-friendly with JSON and Markdown ou
 # Global CLI
 npm install -g depcheck-ts
 
-# Project dependency
+# Project dependency (programmatic use)
 npm install --save-dev depcheck-ts
 ```
 
 ## CLI Usage
 
 ```bash
-# Analyze current project
+# Analyze current directory
 depcheck-ts
 
-# Analyze specific path
+# Analyze a specific path
 depcheck-ts --path ./my-project
 
-# JSON output (for CI)
+# JSON output (machine-readable)
 depcheck-ts --format json
 
 # Markdown output (for PR comments)
-depcheck-ts --format markdown > report.md
+depcheck-ts --format markdown
 
-# Only specific checks
-depcheck-ts --outdated --bundle-size
-
-# CI mode: exit code 1 if issues found
+# Exit code 1 when issues are found (CI mode)
 depcheck-ts --ci
 ```
 
-### Sample Terminal Output
-
-```
-┌─────────────────────────────────────────────────────┐
-│                 depcheck-ts report                  │
-├─────────────────────────────────────────────────────┤
-│  47 dependencies analyzed                           │
-│  12 outdated · 3 heavy · 2 unused · 0 license issues│
-└─────────────────────────────────────────────────────┘
-
- OUTDATED PACKAGES
- ┌──────────────┬──────────┬──────────┬──────────┐
- │ Package      │ Current  │ Latest   │ Severity │
- ├──────────────┼──────────┼──────────┼──────────┤
- │ axios        │ 1.6.0    │ 1.8.2    │ minor    │
- │ lodash       │ 4.17.20  │ 4.17.21  │ patch    │
- │ moment       │ 2.29.4   │ 2.30.1   │ ⚠ major  │
- └──────────────┴──────────┴──────────┴──────────┘
-
- BUNDLE SIZE IMPACT
- ┌──────────────┬───────────┬───────────────────────┐
- │ Package      │ Size (gz) │ Note                  │
- ├──────────────┼───────────┼───────────────────────┤
- │ moment       │ 72.1 KB   │ ⚠ Consider: dayjs     │
- │ lodash       │ 71.5 KB   │ ⚠ Consider: lodash-es │
- │ chart.js     │ 63.8 KB   │                       │
- └──────────────┴───────────┴───────────────────────┘
-
- UNUSED DEPENDENCIES
-   • classnames (not imported in any source file)
-   • uuid (not imported in any source file)
-```
-
-## Library Usage
+## Programmatic API
 
 ```typescript
 import { analyze } from 'depcheck-ts';
 
 const report = await analyze({ projectPath: './my-project' });
 
-console.log(report.outdated);    // OutdatedPackage[]
-console.log(report.bundleSize);  // BundleSizeReport
-console.log(report.licenses);    // LicenseReport
-console.log(report.unused);      // UnusedReport
-console.log(report.score);       // 0-100 health score
-console.log(report.errors);      // AnalyzerError[]
+console.log(report.outdated);   // OutdatedPackage[]
+console.log(report.bundleSize); // BundleSizeReport
+console.log(report.licenses);   // LicenseReport
+console.log(report.unused);     // UnusedReport
+console.log(report.score);      // 0-100 health score
+console.log(report.errors);     // AnalyzerError[] — per-analyzer failures
 ```
 
-## Checks
+## What It Checks
 
-| Check           | Description                                                                          | Data Source                 |
-|-----------------|--------------------------------------------------------------------------------------|-----------------------------|
-| **Outdated**    | Compare installed vs latest versions; flag abandoned packages (2+ years stale)       | npm registry API            |
-| **Bundle Size** | Gzipped size of each dependency; flag packages > 100KB; suggest lighter alternatives | bundlephobia API            |
-| **Licenses**    | Extract and categorize licenses; flag GPL in MIT projects                            | package.json + node_modules |
-| **Unused**      | Static analysis of imports; detect declared-but-not-imported deps                    | Source file scanning        |
+| Analyzer | What it does | Data source |
+|---|---|---|
+| **Outdated** | Compares installed vs latest versions; flags packages abandoned for 2+ years | npm registry API |
+| **Bundle Size** | Reports gzipped size per package; flags heavy packages and suggests lighter alternatives | bundlephobia API |
+| **Licenses** | Reads `node_modules/*/package.json`; flags license conflicts (e.g. GPL dep in an MIT project) | Local filesystem |
+| **Unused** | Scans source files for imports; reports declared deps that are never imported | Local filesystem |
 
-## Output Formats
+## Health Score
 
-| Format       | Flag                          | Use Case                              |
-|--------------|-------------------------------|---------------------------------------|
-| **Terminal** | `--format terminal` (default) | Human-readable colored output         |
-| **JSON**     | `--format json`               | CI pipelines, programmatic processing |
-| **Markdown** | `--format markdown`           | GitHub PR comments, reports           |
+Each report includes a `score` from 0 to 100. Penalties are applied per finding:
 
-## CI Integration
+| Condition | Penalty |
+|---|---|
+| License conflict | -10 per conflict |
+| Unused dependency | -4 per package |
+| Major version outdated | -5 per package |
+| Minor version outdated | -2 per package |
+| Patch version outdated | -0.5 per package |
+| Abandoned package | -3 per package |
+| Heavy bundle | -3 per package |
 
-### GitHub Actions
+Score floor is 0.
 
-```yaml
-- name: Dependency health check
-  run: npx depcheck-ts --ci --format json > depcheck-ts-report.json
-
-- name: Comment PR with report
-  if: github.event_name == 'pull_request'
-  run: npx depcheck-ts --format markdown >> $GITHUB_STEP_SUMMARY
-```
-
-## Tech Stack
-
-| Component   | Technology                                  |
-|-------------|---------------------------------------------|
-| **Runtime** | Node.js 20+ · TypeScript                    |
-| **CLI**     | Commander.js                                |
-| **Output**  | chalk · cli-table3                          |
-| **Build**   | tsup                                        |
-| **Testing** | Vitest · mock-fs                            |
-| **CI**      | GitHub Actions (test + auto-publish on tag) |
-
-## Project Structure
-
-```
-depcheck-ts/
-├── src/
-│   ├── cli.ts                  # CLI entry point
-│   ├── index.ts                # Library entry point
-│   ├── analyzers/
-│   │   ├── outdated.ts
-│   │   ├── bundleSize.ts
-│   │   ├── licenses.ts
-│   │   └── unused.ts
-│   ├── reporters/
-│   │   ├── terminal.ts
-│   │   ├── json.ts
-│   │   └── markdown.ts
-│   └── types.ts
-├── build/
-│   └── depcheck-ts.js
-├── tests/
-│   ├── analyzers/
-│   ├── reporters/
-│   └── fixtures/
-└── README.md
-```
-
-## Development
+## Contributing
 
 ```bash
-# Clone
-git clone https://github.com/ArtemX9/depcheck-ts.git
-cd depcheck-ts
-
-# Install
-npm install
-
-# Build
-npm run build
-
-# Run locally
-node build/depcheck-ts.js --path ../some-project
-
-# Tests
-npm test
-
-# Test with coverage
-npm run test:coverage
+npm run build       # compile TS to dist/
+npm test            # run all tests
+npm run test:watch  # vitest in watch mode
+npm run lint        # eslint src/ tests/
+npm run lint:fix    # eslint --fix
+npm run typecheck   # tsc --noEmit
 ```
+
+All PRs must pass `typecheck`, `lint`, and `test`. Commit messages follow conventional commits (`feat:`, `fix:`, `test:`, `docs:`, `chore:`).
 
 ## License
 
 MIT
-
-## Author
-
-**Artem Trukhanov** — [LinkedIn](https://www.linkedin.com/in/trukhanoff/) · [GitHub](https://github.com/ArtemX9)

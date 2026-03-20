@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { faker } from '@faker-js/faker';
-import { analyze } from '../../src/analyzers/outdated';
-import { VersionBump } from '../../src/types';
+import { analyze } from '../../../src/analyzers/outdated';
+import { VersionBump } from '../../../src/types';
 
-vi.mock('../../src/utils/registry', () => ({
+vi.mock('../../../src/utils/registry', () => ({
   fetchPackageInfo: vi.fn(),
 }));
 
-import { fetchPackageInfo } from '../../src/utils/registry';
+import { fetchPackageInfo } from '../../../src/utils/registry';
 
 const mockFetch = vi.mocked(fetchPackageInfo);
 

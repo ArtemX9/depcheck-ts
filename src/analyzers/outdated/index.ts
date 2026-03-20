@@ -1,6 +1,6 @@
-import type { DependencyMap, AnalyzerOptions, OutdatedPackage } from '../types';
-import { VersionBump } from '../types';
-import { fetchPackageInfo } from '../utils/registry';
+import type { DependencyMap, AnalyzerOptions, OutdatedPackage } from '../../types';
+import { VersionBump } from '../../types';
+import { fetchPackageInfo } from '../../utils/registry';
 
 const TWO_YEARS_MS = 2 * 365 * 24 * 60 * 60 * 1000;
 

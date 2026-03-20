@@ -1,17 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { faker } from '@faker-js/faker';
-import type { AnalyzerOptions, DependencyMap } from '../../src/types';
+import type { AnalyzerOptions, DependencyMap } from '../../../src/types';
 
 // ---------------------------------------------------------------------------
 // Mock bundlephobia util before importing the analyzer.
 // ---------------------------------------------------------------------------
 
-vi.mock('../../src/utils/bundlephobia', () => ({
+vi.mock('../../../src/utils/bundlephobia', () => ({
   fetchBundleSize: vi.fn(),
 }));
 
-import { fetchBundleSize } from '../../src/utils/bundlephobia';
-import { analyze } from '../../src/analyzers/bundleSize';
+import { fetchBundleSize } from '../../../src/utils/bundlephobia';
+import { analyze } from '../../../src/analyzers/bundleSize';
 
 const mockFetch = vi.mocked(fetchBundleSize);
 

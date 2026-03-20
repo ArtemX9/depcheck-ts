@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { faker } from '@faker-js/faker';
-import type { AnalyzerOptions, DependencyMap } from '../../src/types';
+import type { AnalyzerOptions, DependencyMap } from '../../../src/types';
 
 // ---------------------------------------------------------------------------
 // Mock node:fs/promises so we never touch the real filesystem.
@@ -11,7 +11,7 @@ vi.mock('node:fs/promises', () => ({
 }));
 
 import { readFile } from 'node:fs/promises';
-import { analyze } from '../../src/analyzers/licenses';
+import { analyze } from '../../../src/analyzers/licenses';
 
 const mockReadFile = vi.mocked(readFile);
 

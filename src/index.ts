@@ -1,9 +1,9 @@
 import type { FullReport, AnalyzerOptions, DependencyMap } from './types';
 import { VersionBump } from './types';
-import { analyze as analyzeOutdated } from './analyzers/outdated.ts';
-import { analyze as analyzeUnused } from './analyzers/unused.ts';
-import { analyze as analyzeLicenses } from './analyzers/licenses.ts';
-import { analyze as analyzeBundleSize } from './analyzers/bundleSize.ts';
+import { analyze as analyzeOutdated } from './analyzers/outdated';
+import { analyze as analyzeUnused } from './analyzers/unused';
+import { analyze as analyzeLicenses } from './analyzers/licenses';
+import { analyze as analyzeBundleSize } from './analyzers/bundleSize';
 import { readPackageJson } from './utils/parser.ts';
 
 async function runOutdatedAnalyzer(deps: DependencyMap, options: AnalyzerOptions) {

@@ -1,84 +1,9 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { join, extname } from 'node:path';
-import type { DependencyMap, AnalyzerOptions, UnusedReport } from '../types';
-import { extractPackageName } from '../utils/packageName';
-
-/**
- * Packages that are implicitly used without being imported directly in source
- * files. They should never be flagged as unused even if no import is found.
- */
-const IMPLICITLY_USED: ReadonlySet<string> = new Set([
-  'typescript',
-  'eslint',
-  'prettier',
-  'tailwindcss',
-  'husky',
-  'lint-staged',
-  'tsup',
-  'tsx',
-  'vite',
-  'vitest',
-  'webpack',
-  'rollup',
-  'esbuild',
-  'babel',
-  '@babel/core',
-  '@babel/cli',
-  '@babel/preset-env',
-  '@babel/preset-typescript',
-  'ts-node',
-  'ts-jest',
-  'jest',
-  'mocha',
-  'jasmine',
-  'nodemon',
-  'concurrently',
-  'cross-env',
-  'rimraf',
-  'npm-run-all',
-  'dotenv-cli',
-  'commitizen',
-  'semantic-release',
-  'standard-version',
-]);
-
-/** Source file extensions to scan for imports. */
-const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
-
-/** Directories to skip when walking the project tree. */
-const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'coverage', '.next', 'out']);
-
-/** Regex to extract ES static import specifiers: import ... from 'pkg' */
-const IMPORT_FROM_RE = /from\s+['"]([^'"]+)['"]/g;
-
-/** Regex to extract dynamic import specifiers: import('pkg') */
-const DYNAMIC_IMPORT_RE = /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
-
-/** Regex to extract require specifiers: require('pkg') */
-const REQUIRE_RE = /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
-
-function isImplicitlyUsed(name: string): boolean {
-  if (IMPLICITLY_USED.has(name)) return true;
-  // @types/* and scoped tooling packages are never flagged
-  if (name.startsWith('@types/')) return true;
-  if (name.startsWith('@typescript-eslint/')) return true;
-  if (name.startsWith('@eslint/')) return true;
-  return false;
-}
-
-function extractImportsFromSource(source: string): string[] {
-  const specifiers: string[] = [];
-
-  for (const re of [IMPORT_FROM_RE, DYNAMIC_IMPORT_RE, REQUIRE_RE]) {
-    const cloned = new RegExp(re.source, re.flags);
-    let match: RegExpExecArray | null;
-    while ((match = cloned.exec(source)) !== null) {
-      specifiers.push(match[1]);
-    }
-  }
-
-  return specifiers;
-}
+import type { DependencyMap, AnalyzerOptions, UnusedReport } from '../../types';
+import { extractPackageName } from '../../utils/packageName';
+import {extractImportsFromSource, isImplicitlyUsed} from './utils';
+import {NODE_BUILTINS, SKIP_DIRS, SOURCE_EXTENSIONS} from './constants';
 
 async function collectSourceFiles(dir: string): Promise<string[]> {
   const results: string[] = [];
@@ -177,6 +102,11 @@ async function extractAllImports(files: string[], pathAliases: Set<string>): Pro
       for (const specifier of extractImportsFromSource(source)) {
         // Skip relative imports and node: builtins
         if (specifier.startsWith('.') || specifier.startsWith('node:')) continue;
+        // Skip specifiers with spaces — these are not valid npm package names
+        // (can occur when regex matches strings containing import syntax)
+        if (specifier.includes(' ')) continue;
+        // Skip bare Node.js built-in module names (e.g. fs, path, crypto)
+        if (NODE_BUILTINS.has(specifier)) continue;
         // Skip TypeScript path aliases (e.g. @/App, ~/utils)
         if ([...pathAliases].some((prefix) => specifier.startsWith(prefix))) continue;
         packageNames.add(extractPackageName(specifier));

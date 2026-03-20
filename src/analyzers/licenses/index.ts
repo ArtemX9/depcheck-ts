@@ -1,45 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { LicenseCategory, type DependencyMap, type AnalyzerOptions, type LicenseEntry, type LicenseReport } from '../types.ts';
-
-/** License identifiers that are considered permissive. */
-const PERMISSIVE_LICENSES: ReadonlySet<string> = new Set([
-  'MIT',
-  'ISC',
-  'BSD-2-Clause',
-  'BSD-3-Clause',
-  'BSD-4-Clause',
-  'Apache-2.0',
-  'CC0-1.0',
-  'Unlicense',
-  '0BSD',
-]);
-
-/** Prefixes that identify copyleft license families. */
-const COPYLEFT_PREFIXES: readonly string[] = ['GPL-', 'LGPL-', 'AGPL-'];
-
-function categorize(license: string): LicenseCategory {
-  if (PERMISSIVE_LICENSES.has(license)) return LicenseCategory.Permissive;
-  if (COPYLEFT_PREFIXES.some((prefix) => license.startsWith(prefix))) return LicenseCategory.Copyleft;
-  return LicenseCategory.Unknown;
-}
-
-function isPermissive(license: string): boolean {
-  return categorize(license) === LicenseCategory.Permissive;
-}
-
-function isCopyleft(license: string): boolean {
-  return categorize(license) === LicenseCategory.Copyleft;
-}
-
-interface RawPackageJson {
-  version?: unknown;
-  license?: unknown;
-}
-
-function isRawPackageJson(value: unknown): value is RawPackageJson {
-  return typeof value === 'object' && value !== null;
-}
+import { type DependencyMap, type AnalyzerOptions, type LicenseEntry, type LicenseReport } from '../../types.ts';
+import {isCopyleft, isPermissive, isRawPackageJson} from './utils';
 
 async function readDepLicense(
   projectPath: string,

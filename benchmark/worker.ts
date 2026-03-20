@@ -115,7 +115,7 @@ async function runAnalyzer(request: WorkerRequest): Promise<unknown> {
 
   switch (analyzer) {
     case 'outdated': {
-      const { analyze } = await import('../src/analyzers/outdated.ts');
+      const { analyze } = await import('../src/analyzers/outdated');
       // Temporarily swap undici's fetch on the registry util module.
       // We do this by re-exporting a patched fetchPackageInfo into the module
       // namespace — not possible for ESM.  Fall back to running with real URLs
@@ -126,15 +126,15 @@ async function runAnalyzer(request: WorkerRequest): Promise<unknown> {
       return runOutdated(analyze, deps, options);
     }
     case 'bundleSize': {
-      const { analyze } = await import('../src/analyzers/bundleSize.ts');
+      const { analyze } = await import('../src/analyzers/bundleSize');
       return runBundleSize(analyze, deps, options);
     }
     case 'licenses': {
-      const { analyze } = await import('../src/analyzers/licenses.ts');
+      const { analyze } = await import('../src/analyzers/licenses');
       return analyze(deps, options);
     }
     case 'unused': {
-      const { analyze } = await import('../src/analyzers/unused.ts');
+      const { analyze } = await import('../src/analyzers/unused');
       return analyze(deps, options);
     }
     default: {

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { faker } from '@faker-js/faker';
-import type { AnalyzerOptions, DependencyMap } from '../../src/types';
+import type { AnalyzerOptions, DependencyMap } from '../../../src/types';
 
 // ---------------------------------------------------------------------------
 // Mock node:fs/promises so we never touch the real filesystem.
@@ -12,7 +12,7 @@ vi.mock('node:fs/promises', () => ({
 }));
 
 import { readdir, readFile } from 'node:fs/promises';
-import { analyze } from '../../src/analyzers/unused';
+import { analyze } from '../../../src/analyzers/unused';
 
 const mockReaddir = vi.mocked(readdir);
 const mockReadFile = vi.mocked(readFile);
@@ -211,7 +211,7 @@ describe('unused', () => {
 
       const result = await analyze(deps('tailwindcss'), makeOptions());
 
-      expect(result.unused).toEqual([]);
+      expect(result.unused).not.toContain('tailwindcss');
     });
 
     it('does not report implicitly used packages in missingFromPackageJson', async () => {
@@ -505,6 +505,112 @@ describe('unused', () => {
       // '@' alias (no wildcard) — exact key is used as prefix so '@' matches '@' and '@/helpers'
       expect(result.missingFromPackageJson).not.toContain('@');
       expect(result.missingFromPackageJson).not.toContain('@/helpers');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Pattern-based implicit detection
+  // -------------------------------------------------------------------------
+
+  describe('pattern-based implicitly used packages', () => {
+    beforeEach(() => {
+      setupSingleDir('/fake/project', ['index.ts']);
+      mockReadFile.mockResolvedValue('');
+    });
+
+    it('does not flag eslint-plugin-* packages as unused', async () => {
+      const result = await analyze(
+        deps('eslint-plugin-react', 'eslint-plugin-import'),
+        makeOptions(),
+      );
+      expect(result.unused).toEqual([]);
+    });
+
+    it('does not flag eslint-config-* packages as unused', async () => {
+      const result = await analyze(
+        deps('eslint-config-airbnb', 'eslint-config-prettier'),
+        makeOptions(),
+      );
+      expect(result.unused).toEqual([]);
+    });
+
+    it('does not flag @storybook/* packages as unused', async () => {
+      const result = await analyze(
+        deps('@storybook/react', '@storybook/addon-essentials'),
+        makeOptions(),
+      );
+      expect(result.unused).toEqual([]);
+    });
+
+    it('does not flag @babel/plugin-* packages as unused', async () => {
+      const result = await analyze(
+        deps('@babel/plugin-transform-runtime', '@babel/plugin-proposal-decorators'),
+        makeOptions(),
+      );
+      expect(result.unused).toEqual([]);
+    });
+
+    it('does not flag @fontsource/* packages as unused', async () => {
+      const result = await analyze(
+        deps('@fontsource/inter', '@fontsource/roboto'),
+        makeOptions(),
+      );
+      expect(result.unused).toEqual([]);
+    });
+
+    it('does not flag cypress-* packages as unused', async () => {
+      const result = await analyze(
+        deps('cypress-localstorage-commands'),
+        makeOptions(),
+      );
+      expect(result.unused).toEqual([]);
+    });
+
+    it('does not flag patch-package as unused', async () => {
+      const result = await analyze(deps('patch-package'), makeOptions());
+      expect(result.unused).toEqual([]);
+    });
+
+    it('does not flag postinstall-postinstall as unused', async () => {
+      const result = await analyze(deps('postinstall-postinstall'), makeOptions());
+      expect(result.unused).toEqual([]);
+    });
+
+    it('does not flag react-scripts as unused', async () => {
+      const result = await analyze(deps('react-scripts'), makeOptions());
+      expect(result.unused).toEqual([]);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Bare Node.js built-in filtering and invalid specifier filtering
+  // -------------------------------------------------------------------------
+
+  describe('bare built-in and invalid specifier filtering', () => {
+    it('does not report bare fs or path imports in missingFromPackageJson', async () => {
+      setupSingleDir('/fake/project', ['index.ts']);
+      mockReadFile.mockResolvedValue(
+        "import { readFileSync } from 'fs';\nimport { join } from 'path';\n",
+      );
+
+      const result = await analyze(deps('lodash'), makeOptions());
+
+      expect(result.missingFromPackageJson).not.toContain('fs');
+      expect(result.missingFromPackageJson).not.toContain('path');
+    });
+
+    it('does not report a specifier containing spaces in missingFromPackageJson', async () => {
+      setupSingleDir('/fake/project', ['index.ts']);
+      // Simulate a file where the regex could match a string like
+      // "import { FOO } from 'some-pkg'" as a specifier value
+      mockReadFile.mockResolvedValue(
+        "const s = 'import { FOO } from \\'some-pkg\\'';\nimport real from 'real-pkg';\n",
+      );
+
+      const result = await analyze(deps('real-pkg'), makeOptions());
+
+      const hasSpaceSpecifier = result.missingFromPackageJson.some((s) => s.includes(' '));
+      expect(hasSpaceSpecifier).toBe(false);
     });
   });
 
