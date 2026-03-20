@@ -49,7 +49,7 @@
     }
   },
   "bin": {
-    "depcheck-ts": "./build/cli.cjs"
+    "depcheck-ts": "build/cli.cjs"
   },
   "files": [
     "build"
