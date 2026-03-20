@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { faker } from '@faker-js/faker';
-import { analyze } from '../../../src/analyzers/outdated';
+import { analyze } from '../../../src/analyzers/outdated/index';
 import { VersionBump } from '../../../src/types';
 
 vi.mock('../../../src/utils/registry', () => ({

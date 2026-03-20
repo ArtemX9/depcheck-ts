@@ -11,7 +11,7 @@ vi.mock('node:fs/promises', () => ({
 }));
 
 import { readFile } from 'node:fs/promises';
-import { analyze } from '../../../src/analyzers/licenses';
+import { analyze } from '../../../src/analyzers/licenses/index';
 
 const mockReadFile = vi.mocked(readFile);
 

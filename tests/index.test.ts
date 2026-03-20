@@ -6,7 +6,7 @@ import { VersionBump } from '../src/types';
 // Mock the outdated analyzer — the only analyzer with real logic in src/index.ts.
 // The bundle-size, licenses, and unused runners are stubs; we test them via their
 // fallback / error-capture paths below.
-vi.mock('../src/analyzers/outdated', () => ({
+vi.mock('../src/analyzers/outdated/index', () => ({
   analyze: vi.fn(),
 }));
 
@@ -14,7 +14,7 @@ vi.mock('../src/utils/parser', () => ({
   readPackageJson: vi.fn(),
 }));
 
-import { analyze as analyzeOutdated } from '../src/analyzers/outdated';
+import { analyze as analyzeOutdated } from '../src/analyzers/outdated/index';
 import { readPackageJson } from '../src/utils/parser';
 import { analyze } from '../src/index';
 

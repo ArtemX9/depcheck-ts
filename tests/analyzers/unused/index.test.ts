@@ -12,7 +12,7 @@ vi.mock('node:fs/promises', () => ({
 }));
 
 import { readdir, readFile } from 'node:fs/promises';
-import { analyze } from '../../../src/analyzers/unused';
+import { analyze } from '../../../src/analyzers/unused/index';
 
 const mockReaddir = vi.mocked(readdir);
 const mockReadFile = vi.mocked(readFile);

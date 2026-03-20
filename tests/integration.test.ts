@@ -25,19 +25,19 @@ import { VersionBump } from '../src/types';
 // Mock both analyzers before importing anything that depends on src/index.ts.
 // ---------------------------------------------------------------------------
 
-vi.mock('../src/analyzers/outdated', () => ({
+vi.mock('../src/analyzers/outdated/index', () => ({
   analyze: vi.fn(),
 }));
 
-vi.mock('../src/analyzers/unused', () => ({
+vi.mock('../src/analyzers/unused/index', () => ({
   analyze: vi.fn(),
 }));
 
-vi.mock('../src/analyzers/bundleSize', () => ({
+vi.mock('../src/analyzers/bundleSize/index', () => ({
   analyze: vi.fn(),
 }));
 
-vi.mock('../src/analyzers/licenses', () => ({
+vi.mock('../src/analyzers/licenses/index', () => ({
   analyze: vi.fn(),
 }));
 
@@ -45,10 +45,10 @@ vi.mock('../src/utils/parser', () => ({
   readPackageJson: vi.fn(),
 }));
 
-import { analyze as analyzeOutdated } from '../src/analyzers/outdated';
-import { analyze as analyzeUnused } from '../src/analyzers/unused';
-import { analyze as analyzeBundleSize } from '../src/analyzers/bundleSize';
-import { analyze as analyzeLicenses } from '../src/analyzers/licenses';
+import { analyze as analyzeOutdated } from '../src/analyzers/outdated/index';
+import { analyze as analyzeUnused } from '../src/analyzers/unused/index';
+import { analyze as analyzeBundleSize } from '../src/analyzers/bundleSize/index';
+import { analyze as analyzeLicenses } from '../src/analyzers/licenses/index';
 import { readPackageJson } from '../src/utils/parser';
 import { analyze } from '../src/index';
 import { formatTerminal } from '../src/reporters/terminal';

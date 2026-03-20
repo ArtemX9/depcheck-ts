@@ -45,10 +45,10 @@ describe('categorize', () => {
 // ---------------------------------------------------------------------------
 
 describe('isPermissive', () => {
-  it('returns true for MIT', () => expect(isPermissive('MIT')).toBe(true));
-  it('returns true for Apache-2.0', () => expect(isPermissive('Apache-2.0')).toBe(true));
-  it('returns false for GPL-3.0', () => expect(isPermissive('GPL-3.0')).toBe(false));
-  it('returns false for unknown license', () => expect(isPermissive('UNKNOWN')).toBe(false));
+  it('returns true for MIT', () => { expect(isPermissive('MIT')).toBe(true); });
+  it('returns true for Apache-2.0', () => { expect(isPermissive('Apache-2.0')).toBe(true); });
+  it('returns false for GPL-3.0', () => { expect(isPermissive('GPL-3.0')).toBe(false); });
+  it('returns false for unknown license', () => { expect(isPermissive('UNKNOWN')).toBe(false); });
 });
 
 // ---------------------------------------------------------------------------
@@ -56,11 +56,11 @@ describe('isPermissive', () => {
 // ---------------------------------------------------------------------------
 
 describe('isCopyleft', () => {
-  it('returns true for GPL-2.0', () => expect(isCopyleft('GPL-2.0')).toBe(true));
-  it('returns true for AGPL-3.0', () => expect(isCopyleft('AGPL-3.0')).toBe(true));
-  it('returns true for LGPL-3.0', () => expect(isCopyleft('LGPL-3.0')).toBe(true));
-  it('returns false for MIT', () => expect(isCopyleft('MIT')).toBe(false));
-  it('returns false for unknown license', () => expect(isCopyleft('PROPRIETARY')).toBe(false));
+  it('returns true for GPL-2.0', () => { expect(isCopyleft('GPL-2.0')).toBe(true); });
+  it('returns true for AGPL-3.0', () => { expect(isCopyleft('AGPL-3.0')).toBe(true); });
+  it('returns true for LGPL-3.0', () => { expect(isCopyleft('LGPL-3.0')).toBe(true); });
+  it('returns false for MIT', () => { expect(isCopyleft('MIT')).toBe(false); });
+  it('returns false for unknown license', () => { expect(isCopyleft('PROPRIETARY')).toBe(false); });
 });
 
 // ---------------------------------------------------------------------------

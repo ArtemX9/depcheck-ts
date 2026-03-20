@@ -11,7 +11,7 @@ vi.mock('../../../src/utils/bundlephobia', () => ({
 }));
 
 import { fetchBundleSize } from '../../../src/utils/bundlephobia';
-import { analyze } from '../../../src/analyzers/bundleSize';
+import { analyze } from '../../../src/analyzers/bundleSize/index';
 
 const mockFetch = vi.mocked(fetchBundleSize);
 
