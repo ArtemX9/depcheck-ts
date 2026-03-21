@@ -16,6 +16,7 @@ describe('isImplicitlyUsed', () => {
       'commitizen', 'semantic-release', 'standard-version',
       'patch-package', 'postinstall-postinstall', 'react-scripts',
       'storybook', 'redux-devtools', '@redux-devtools/extension',
+      'jsdom', 'shadcn', 'react-dom', '@testing-library/jest-dom',
     ])('%s is implicitly used', (pkg) => {
       expect(isImplicitlyUsed(pkg)).toBe(true);
     });
@@ -44,6 +45,10 @@ describe('isImplicitlyUsed', () => {
       ['@fontsource/inter', '@fontsource/'],
       ['cypress-localstorage-commands', 'cypress-'],
       ['cypress-real-events', 'cypress-'],
+      ['prettier-plugin-tailwindcss', 'prettier-plugin-'],
+      ['prettier-plugin-organize-imports', 'prettier-plugin-'],
+      ['@tailwindcss/postcss', '@tailwindcss/'],
+      ['@tailwindcss/typography', '@tailwindcss/'],
     ])('%s matches prefix %s', (pkg) => {
       expect(isImplicitlyUsed(pkg)).toBe(true);
     });
@@ -51,7 +56,7 @@ describe('isImplicitlyUsed', () => {
 
   describe('regular packages are not implicitly used', () => {
     it.each([
-      'lodash', 'express', 'axios', 'react', 'react-dom', 'chalk',
+      'lodash', 'express', 'axios', 'react', 'chalk',
       'commander', 'date-fns', 'zod', 'uuid',
     ])('%s returns false', (pkg) => {
       expect(isImplicitlyUsed(pkg)).toBe(false);
@@ -127,6 +132,31 @@ describe('extractImportsFromSource', () => {
     it('extracts require with double quotes', () => {
       const src = `const x = require("express");`;
       expect(extractImportsFromSource(src)).toContain('express');
+    });
+  });
+
+  describe('CSS @import', () => {
+    it('extracts a bare package name from CSS @import with single quotes', () => {
+      const src = `@import 'tw-animate-css';`;
+      expect(extractImportsFromSource(src)).toContain('tw-animate-css');
+    });
+
+    it('extracts a bare package name from CSS @import with double quotes', () => {
+      const src = `@import "some-scss-lib";`;
+      expect(extractImportsFromSource(src)).toContain('some-scss-lib');
+    });
+
+    it('extracts relative CSS @import specifiers (filtered later in analyzer)', () => {
+      const src = `@import './local.css';`;
+      expect(extractImportsFromSource(src)).toContain('./local.css');
+    });
+
+    it('does not extract url() CSS imports', () => {
+      const src = `@import url('https://fonts.googleapis.com/css2?family=Inter');`;
+      // url() form does not match the regex pattern
+      expect(extractImportsFromSource(src)).not.toContain(
+        'https://fonts.googleapis.com/css2?family=Inter',
+      );
     });
   });
 

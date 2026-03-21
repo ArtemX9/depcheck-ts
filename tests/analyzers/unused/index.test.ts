@@ -482,6 +482,33 @@ describe('unused', () => {
       expect(result.missingFromPackageJson).toEqual([]);
     });
 
+    it('parses tsconfig with JSONC trailing commas correctly', async () => {
+      setupSingleDir('/fake/project', ['app.ts']);
+      mockReadFile.mockImplementation((path: unknown) => {
+        const p = path as string;
+        if (p.endsWith('tsconfig.json')) {
+          // Real-world tsconfig with trailing commas — standard JSON.parse would fail
+          return Promise.resolve(
+            `{
+              "compilerOptions": {
+                "paths": {
+                  "@/*": ["./src/*"],
+                  "~/*": ["./src/*"],
+                },
+              },
+            }`,
+          );
+        }
+        return Promise.resolve("import App from '@/App';\nimport util from '~/utils';\n");
+      });
+
+      const result = await analyze(deps('react'), makeOptions());
+
+      // Both aliases should have been parsed and filtered out
+      expect(result.missingFromPackageJson).not.toContain('@/App');
+      expect(result.missingFromPackageJson).not.toContain('~/utils');
+    });
+
     it('filters path aliases without wildcard (exact key)', async () => {
       setupSingleDir('/fake/project', ['app.ts']);
       mockReadFile.mockImplementation((path: unknown) => {
@@ -580,6 +607,42 @@ describe('unused', () => {
       const result = await analyze(deps('react-scripts'), makeOptions());
       expect(result.unused).toEqual([]);
     });
+
+    it('does not flag jsdom as unused', async () => {
+      const result = await analyze(deps('jsdom'), makeOptions());
+      expect(result.unused).toEqual([]);
+    });
+
+    it('does not flag shadcn as unused', async () => {
+      const result = await analyze(deps('shadcn'), makeOptions());
+      expect(result.unused).toEqual([]);
+    });
+
+    it('does not flag react-dom as unused', async () => {
+      const result = await analyze(deps('react-dom'), makeOptions());
+      expect(result.unused).toEqual([]);
+    });
+
+    it('does not flag @testing-library/jest-dom as unused', async () => {
+      const result = await analyze(deps('@testing-library/jest-dom'), makeOptions());
+      expect(result.unused).toEqual([]);
+    });
+
+    it('does not flag prettier-plugin-* packages as unused', async () => {
+      const result = await analyze(
+        deps('prettier-plugin-tailwindcss', 'prettier-plugin-organize-imports'),
+        makeOptions(),
+      );
+      expect(result.unused).toEqual([]);
+    });
+
+    it('does not flag @tailwindcss/* packages as unused', async () => {
+      const result = await analyze(
+        deps('@tailwindcss/postcss', '@tailwindcss/typography'),
+        makeOptions(),
+      );
+      expect(result.unused).toEqual([]);
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -619,7 +682,7 @@ describe('unused', () => {
   // -------------------------------------------------------------------------
 
   describe('source file extensions', () => {
-    it.each([['app.ts'], ['app.tsx'], ['app.js'], ['app.jsx'], ['app.mjs'], ['app.cjs']])(
+    it.each([['app.ts'], ['app.tsx'], ['app.js'], ['app.jsx'], ['app.mjs'], ['app.cjs'], ['app.css'], ['app.scss']])(
       'detects imports from %s files',
       async (filename) => {
         setupSingleDir('/fake/project', [filename]);
@@ -630,6 +693,40 @@ describe('unused', () => {
         expect(result.unused).not.toContain('lodash');
       },
     );
+
+    it('detects packages imported via CSS @import in .css files', async () => {
+      setupSingleDir('/fake/project', ['styles.css']);
+      mockReadFile.mockImplementation((path: unknown) => {
+        const p = path as string;
+        if (p.endsWith('styles.css')) {
+          return Promise.resolve("@import 'tw-animate-css';\n@import './local.css';\n");
+        }
+        return Promise.reject(new Error('ENOENT'));
+      });
+
+      const result = await analyze(deps('tw-animate-css', 'unused-pkg'), makeOptions());
+
+      expect(result.unused).not.toContain('tw-animate-css');
+      expect(result.unused).toContain('unused-pkg');
+      // Local relative import must not be reported as missing
+      expect(result.missingFromPackageJson).not.toContain('./local.css');
+    });
+
+    it('detects packages imported via CSS @import in .scss files', async () => {
+      setupSingleDir('/fake/project', ['main.scss']);
+      mockReadFile.mockImplementation((path: unknown) => {
+        const p = path as string;
+        if (p.endsWith('main.scss')) {
+          return Promise.resolve('@import "some-scss-lib";\n');
+        }
+        return Promise.reject(new Error('ENOENT'));
+      });
+
+      const result = await analyze(deps('some-scss-lib', 'other-pkg'), makeOptions());
+
+      expect(result.unused).not.toContain('some-scss-lib');
+      expect(result.unused).toContain('other-pkg');
+    });
 
     it('ignores non-source files like .json', async () => {
       setupSingleDir('/fake/project', ['config.json']);

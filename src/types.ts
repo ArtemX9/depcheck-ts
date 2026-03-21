@@ -63,6 +63,15 @@ export interface AnalyzerError {
   message: string;
 }
 
+/**
+ * Strategy interface implemented by every analyzer class.
+ * The generic parameter preserves the concrete result type of each analyzer.
+ */
+export interface Analyzer<TResult> {
+  analyze(options: AnalyzerOptions): Promise<{result: TResult | null; error: AnalyzerError | null}>;
+}
+// {result: OutdatedPackage[] | null;
+//   error: AnalyzerError | null}
 export interface FullReport {
   outdated: OutdatedPackage[];
   bundleSize: BundleSizeReport;

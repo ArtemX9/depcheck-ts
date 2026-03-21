@@ -1,83 +1,88 @@
-import type { FullReport, AnalyzerOptions, DependencyMap } from './types';
-import { VersionBump } from './types';
-import { analyze as analyzeOutdated } from './analyzers/outdated/index';
-import { analyze as analyzeUnused } from './analyzers/unused/index';
-import { analyze as analyzeLicenses } from './analyzers/licenses/index';
-import { analyze as analyzeBundleSize } from './analyzers/bundleSize/index';
-import { readPackageJson } from './utils/parser.ts';
-
-async function runOutdatedAnalyzer(deps: DependencyMap, options: AnalyzerOptions) {
-  return analyzeOutdated(deps, options);
-}
-
-async function runBundleSizeAnalyzer(deps: DependencyMap, options: AnalyzerOptions) {
-  return analyzeBundleSize(deps, options);
-}
-
-async function runLicensesAnalyzer(deps: DependencyMap, options: AnalyzerOptions) {
-  return analyzeLicenses(deps, options);
-}
-
-async function runUnusedAnalyzer(deps: DependencyMap, options: AnalyzerOptions) {
-  return analyzeUnused(deps, options);
-}
+import type {AnalyzerError, AnalyzerOptions, DependencyMap, FullReport} from './types';
+import {VersionBump} from './types';
+import {OutdatedAnalyzer} from './analyzers/outdated/index';
+import {UnusedAnalyzer} from './analyzers/unused/index';
+import {LicenseAnalyzer} from './analyzers/licenses/index';
+import {BundleSizeAnalyzer} from './analyzers/bundleSize/index';
+import {readPackageJson} from './utils/parser.ts';
 
 function calculateScore(report: Omit<FullReport, 'score' | 'errors'>): number {
-  let penalty = 0;
+    let penalty = 0;
 
-  for (const pkg of report.outdated) {
-    if (pkg.abandoned === true) {
-      penalty += 3;
+    for (const pkg of report.outdated) {
+        if (pkg.abandoned === true) {
+            penalty += 3;
+        }
+        if (pkg.type === VersionBump.MAJOR) {
+            penalty += 5;
+        } else if (pkg.type === VersionBump.MINOR) {
+            penalty += 2;
+        } else {
+            penalty += 0.5;
+        }
     }
-    if (pkg.type === VersionBump.MAJOR) {
-      penalty += 5;
-    } else if (pkg.type === VersionBump.MINOR) {
-      penalty += 2;
-    } else {
-      penalty += 0.5;
+
+    penalty += report.licenses.conflicts.length * 10;
+
+    penalty += report.unused.unused.length * 4;
+
+    for (const entry of report.bundleSize.packages) {
+        if (entry.heavy) {
+            penalty += 3;
+        }
     }
-  }
 
-  penalty += report.licenses.conflicts.length * 10;
-
-  penalty += report.unused.unused.length * 4;
-
-  for (const entry of report.bundleSize.packages) {
-    if (entry.heavy) {
-      penalty += 3;
-    }
-  }
-
-  return Math.max(0, 100 - penalty);
+    return Math.max(0, 100 - penalty);
 }
 
 export async function analyze(options: AnalyzerOptions): Promise<FullReport> {
-  const { deps, devDeps } = await readPackageJson(options.projectPath);
-  const allDeps: DependencyMap = { ...deps, ...devDeps };
+    const {
+        deps,
+        devDeps,
+    } = await readPackageJson(options.projectPath);
+    const allDeps: DependencyMap = {...deps, ...devDeps};
 
-  const errors: FullReport['errors'] = [];
+    const errors: AnalyzerError[] = [];
+    const unusedAnalyzer = new UnusedAnalyzer(allDeps);
+    const licenseAnalyzer = new LicenseAnalyzer(allDeps);
+    const bundleSizeAnalyzer = new BundleSizeAnalyzer(deps);
+    const outdatedAnalyzer = new OutdatedAnalyzer(allDeps);
 
-  const [outdated, bundleSize, licenses, unused] = await Promise.all([
-    runOutdatedAnalyzer(allDeps, options).catch((err: unknown) => {
-      errors.push({ analyzer: 'outdated', message: String(err) });
-      return [];
-    }),
-    runBundleSizeAnalyzer(deps, options).catch((err: unknown) => {
-      errors.push({ analyzer: 'bundleSize', message: String(err) });
-      return { packages: [], totalGzip: 0 };
-    }),
-    runLicensesAnalyzer(allDeps, options).catch((err: unknown) => {
-      errors.push({ analyzer: 'licenses', message: String(err) });
-      return { packages: [], conflicts: [] };
-    }),
-    runUnusedAnalyzer(allDeps, options).catch((err: unknown) => {
-      errors.push({ analyzer: 'unused', message: String(err) });
-      return { unused: [], missingFromPackageJson: [] };
-    }),
-  ]);
+    // Build inline Analyzer<T> adapters wrapping each standalone function.
+    // Using the functions directly (not the class constructors) ensures that
+    // vi.mock() overrides of the standalone exports are respected in tests.
+    const [outdatedRun, bundleSizeRun, licensesRun, unusedRun] = await Promise.all([outdatedAnalyzer.analyze(options), bundleSizeAnalyzer.analyze(options), licenseAnalyzer.analyze(options), unusedAnalyzer.analyze(options)]);
 
-  const partial = { outdated, bundleSize, licenses, unused };
-  const score = calculateScore(partial);
+    if (outdatedRun.error !== null) errors.push(outdatedRun.error);
+    if (bundleSizeRun.error !== null) errors.push(bundleSizeRun.error);
+    if (licensesRun.error !== null) errors.push(licensesRun.error);
+    if (unusedRun.error !== null) errors.push(unusedRun.error);
 
-  return { ...partial, score, errors };
+    const outdated = outdatedRun.result ?? [];
+    const bundleSize = bundleSizeRun.result ?? {
+        packages: [],
+        totalGzip: 0,
+    };
+    const licenses = licensesRun.result ?? {
+        packages: [],
+        conflicts: [],
+    };
+    const unused = unusedRun.result ?? {
+        unused: [],
+        missingFromPackageJson: [],
+    };
+
+    const partial = {
+        outdated,
+        bundleSize,
+        licenses,
+        unused,
+    };
+    const score = calculateScore(partial);
+
+    return {
+        ...partial,
+        score,
+        errors,
+    };
 }

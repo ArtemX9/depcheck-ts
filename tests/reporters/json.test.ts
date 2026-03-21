@@ -43,7 +43,7 @@ function makeLicenseEntry(overrides?: Partial<LicenseEntry>): LicenseEntry {
 function makeCleanReport(): FullReport {
   return {
     outdated: [],
-    bundleSize: { packages: [], totalGzip: 0 },
+    bundleSize: { packages: [], totalGzip: 0, errors: [] },
     licenses: { packages: [], conflicts: [] },
     unused: { unused: [], missingFromPackageJson: [] },
     score: 100,
@@ -98,6 +98,7 @@ function makeFullReport(): FullReport {
     bundleSize: {
       packages: [heavyEntry, lightEntry],
       totalGzip: heavyEntry.gzip + lightEntry.gzip,
+      errors: [],
     },
     licenses: {
       packages: [conflictLicense, mitLicense],

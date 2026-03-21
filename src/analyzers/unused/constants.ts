@@ -41,6 +41,10 @@ export const IMPLICITLY_USED: ReadonlySet<string> = new Set([
     'storybook',
     'redux-devtools',
     '@redux-devtools/extension',
+    'jsdom',
+    'shadcn',
+    'react-dom',
+    '@testing-library/jest-dom',
 ]);
 
 /**
@@ -58,7 +62,7 @@ export const NODE_BUILTINS: ReadonlySet<string> = new Set([
 ]);
 
 /** Source file extensions to scan for imports. */
-export const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
+export const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.css', '.scss']);
 
 /** Directories to skip when walking the project tree. */
 export const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'coverage', '.next', 'out']);
@@ -71,3 +75,6 @@ export const DYNAMIC_IMPORT_RE = /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
 
 /** Regex to extract require specifiers: require('pkg') */
 export const REQUIRE_RE = /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
+
+/** Regex to extract CSS @import specifiers: @import 'pkg' or @import "pkg" */
+export const CSS_IMPORT_RE = /@import\s+['"]([^'"]+)['"]/g;

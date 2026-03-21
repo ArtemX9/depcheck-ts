@@ -1,54 +1,98 @@
-import type { DependencyMap, AnalyzerOptions, BundleSizeEntry, BundleSizeReport } from '../../types.ts';
-import { fetchBundleSize } from '../../utils/bundlephobia.ts';
+import type {
+    Analyzer,
+    AnalyzerError,
+    AnalyzerOptions,
+    BundleSizeEntry,
+    BundleSizeReport,
+    DependencyMap,
+} from '../../types.ts';
+import {fetchBundleSize} from '../../utils/bundlephobia.ts';
 import {ALTERNATIVES, HEAVY_THRESHOLD_BYTES} from './constants';
 
-/**
- * Analyze bundle size for all non-dev dependencies.
- *
- * Each package is queried against bundlephobia. Per-package failures are
- * caught and recorded in `errors` on the returned report — they never crash
- * the overall analyzer.
- */
-export async function analyze(
-  deps: DependencyMap,
-  _options: AnalyzerOptions,
-): Promise<BundleSizeReport & { errors: Array<{ name: string; message: string }> }> {
-  const depNames = Object.keys(deps);
+export class BundleSizeAnalyzer implements Analyzer<BundleSizeReport> {
+    title = 'bundleSize';
+    deps: DependencyMap;
 
-  if (depNames.length === 0) {
-    return { packages: [], totalGzip: 0, errors: [] };
-  }
+    constructor(deps: DependencyMap) {
+        this.deps = deps;
+        return this;
+    }
 
-  const packages: BundleSizeEntry[] = [];
-  const errors: Array<{ name: string; message: string }> = [];
+    /**
+     * Analyze bundle size for all non-dev dependencies.
+     *
+     * Each package is queried against bundlephobia. Per-package failures are
+     * caught and recorded in `errors` on the returned report — they never crash
+     * the overall analyzer.
+     */
+    async analyze(_options: AnalyzerOptions): Promise<{
+        result: BundleSizeReport | null;
+        error: AnalyzerError | null
+    }> {
+        const depNames = Object.keys(this.deps);
 
-  await Promise.all(
-    depNames.map(async (name) => {
-      const version = deps[name];
-      // Strip semver range prefixes (^, ~, >=, >, =, v) for the API call.
-      const stripped = version.replace(/^[\^~>=v]+/, '').split(/[-+]/)[0] ?? '';
-      const cleanVersion = stripped.length > 0 ? stripped : version;
+        if (depNames.length === 0) {
+            return {
+                result: {
+                    packages: [],
+                    totalGzip: 0,
+                },
+                error: null,
+            };
+        }
 
-      try {
-        const result = await fetchBundleSize(name, cleanVersion);
-        const heavy = result.gzip > HEAVY_THRESHOLD_BYTES;
-        const alternative = heavy ? (ALTERNATIVES[name] ?? undefined) : undefined;
+        const packages: BundleSizeEntry[] = [];
+        const errors: Array<{
+            name: string;
+            message: string
+        }> = [];
+        try {
+            await Promise.all(depNames.map(async (name) => {
+                const version = this.deps[name];
+                // Strip semver range prefixes (^, ~, >=, >, =, v) for the API call.
+                const stripped = version.replace(/^[\^~>=v]+/, '').split(/[-+]/)[0] ?? '';
+                const cleanVersion = stripped.length > 0 ? stripped : version;
 
-        packages.push({
-          name,
-          version: result.version,
-          gzip: result.gzip,
-          size: result.size,
-          heavy,
-          ...(alternative !== undefined ? { alternative } : {}),
-        });
-      } catch (err: unknown) {
-        errors.push({ name, message: String(err) });
-      }
-    }),
-  );
+                try {
+                    const result = await fetchBundleSize(name, cleanVersion);
+                    const heavy = result.gzip > HEAVY_THRESHOLD_BYTES;
+                    const alternative = heavy ? (ALTERNATIVES[name] ?? undefined) : undefined;
 
-  const totalGzip = packages.reduce((sum, p) => sum + p.gzip, 0);
+                    packages.push({
+                        name,
+                        version: result.version,
+                        gzip: result.gzip,
+                        size: result.size,
+                        heavy, ...(alternative !== undefined ? {alternative} : {}),
+                    });
+                } catch (err: unknown) {
+                    errors.push({
+                        name,
+                        message: String(err),
+                    });
+                }
+            }));
 
-  return { packages, totalGzip, errors };
+            const totalGzip = packages.reduce((sum, p) => sum + p.gzip, 0);
+
+            return {
+                result: {
+                    packages,
+                    totalGzip,
+                },
+                error: {
+                    analyzer: this.title,
+                    message: errors.map(e => `${e.name}: ${e.message};`).join('\n')
+                },
+            };
+        } catch (err: unknown) {
+            return {
+                result: null,
+                error: {
+                    analyzer: this.title,
+                    message: String(err),
+                },
+            };
+        }
+    }
 }
