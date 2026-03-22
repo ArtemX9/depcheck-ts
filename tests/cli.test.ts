@@ -22,7 +22,7 @@ const mockAnalyze = vi.mocked(analyze);
 function makeReport(override?: Partial<FullReport>): FullReport {
   return {
     outdated: [],
-    bundleSize: { packages: [], totalGzip: 0, errors: [] },
+    bundleSize: { packages: [], totalGzip: 0 },
     licenses: { packages: [], conflicts: [] },
     unused: { unused: [], missingFromPackageJson: [] },
     score: 100,

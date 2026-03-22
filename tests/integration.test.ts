@@ -3,12 +3,12 @@
  *
  * Strategy
  * --------
- * `src/index.ts` contains a stub `readPackageJson` that always returns empty
- * deps. Rather than treating that stub as a hard constraint, we mock both
- * analyzers at module level so `analyze()` receives controlled results while
- * still exercising the real Promise.all orchestration, error array, score
- * calculation stub, and FullReport assembly.  The resulting FullReport is then
- * passed through the real `formatTerminal` and `formatMarkdown` reporters.
+ * `src/index.ts` instantiates analyzer classes from each module. We mock the
+ * class constructors so that each instance has a controlled `analyze` method.
+ * This exercises the real Promise.all orchestration, error array assembly,
+ * score calculation, and FullReport shape — while keeping HTTP and filesystem
+ * calls fully mocked. The resulting FullReport is then passed through the real
+ * `formatTerminal` and `formatMarkdown` reporters.
  *
  * Fixture used: tests/fixtures/e2e-fixture/
  *   dependencies:  express ^4.18.0, lodash ^4.17.21, chalk ^4.1.2
@@ -18,54 +18,69 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { resolve } from 'node:path';
-import type { OutdatedPackage, UnusedReport, AnalyzerOptions } from '../src/types';
+import type { OutdatedPackage, UnusedReport, AnalyzerOptions, AnalyzerError } from '../src/types';
 import { VersionBump } from '../src/types';
 
 // ---------------------------------------------------------------------------
-// Mock both analyzers before importing anything that depends on src/index.ts.
+// Use vi.hoisted() so the mock functions are available before the vi.mock
+// factory runs (vi.mock factories are hoisted to the top of the file).
 // ---------------------------------------------------------------------------
 
-vi.mock('../src/analyzers/outdated/index', () => ({
-  analyze: vi.fn(),
+const mocks = vi.hoisted(() => ({
+  outdatedAnalyze: vi.fn(),
+  unusedAnalyze: vi.fn(),
+  bundleSizeAnalyze: vi.fn(),
+  licensesAnalyze: vi.fn(),
 }));
 
-vi.mock('../src/analyzers/unused/index', () => ({
-  analyze: vi.fn(),
-}));
+vi.mock('../src/analyzers/outdated/index', () => {
+  function OutdatedAnalyzer() { /* noop */ }
+  OutdatedAnalyzer.prototype.analyze = mocks.outdatedAnalyze;
+  return { OutdatedAnalyzer };
+});
 
-vi.mock('../src/analyzers/bundleSize/index', () => ({
-  analyze: vi.fn(),
-}));
+vi.mock('../src/analyzers/unused/index', () => {
+  function UnusedAnalyzer() { /* noop */ }
+  UnusedAnalyzer.prototype.analyze = mocks.unusedAnalyze;
+  return { UnusedAnalyzer };
+});
 
-vi.mock('../src/analyzers/licenses/index', () => ({
-  analyze: vi.fn(),
-}));
+vi.mock('../src/analyzers/bundleSize/index', () => {
+  function BundleSizeAnalyzer() { /* noop */ }
+  BundleSizeAnalyzer.prototype.analyze = mocks.bundleSizeAnalyze;
+  return { BundleSizeAnalyzer };
+});
+
+vi.mock('../src/analyzers/licenses/index', () => {
+  function LicenseAnalyzer() { /* noop */ }
+  LicenseAnalyzer.prototype.analyze = mocks.licensesAnalyze;
+  return { LicenseAnalyzer };
+});
 
 vi.mock('../src/utils/parser', () => ({
   readPackageJson: vi.fn(),
 }));
 
-import { analyze as analyzeOutdated } from '../src/analyzers/outdated/index';
-import { analyze as analyzeUnused } from '../src/analyzers/unused/index';
-import { analyze as analyzeBundleSize } from '../src/analyzers/bundleSize/index';
-import { analyze as analyzeLicenses } from '../src/analyzers/licenses/index';
 import { readPackageJson } from '../src/utils/parser';
 import { analyze } from '../src/index';
 import { formatTerminal } from '../src/reporters/terminal';
 import { formatMarkdown } from '../src/reporters/markdown';
 
-const mockOutdated = vi.mocked(analyzeOutdated);
-const mockUnused = vi.mocked(analyzeUnused);
-const mockBundleSize = vi.mocked(analyzeBundleSize);
-const mockLicenses = vi.mocked(analyzeLicenses);
 const mockReadPackageJson = vi.mocked(readPackageJson);
+
+/** Wrap a value in the {result, error} envelope that analyzer.analyze() returns. */
+function ok<T>(value: T): { result: T; error: null } {
+  return { result: value, error: null };
+}
+
+function fail(analyzer: string, message: string): { result: null; error: AnalyzerError } {
+  return { result: null, error: { analyzer, message } };
+}
 
 // ---------------------------------------------------------------------------
 // Fixture path
 // ---------------------------------------------------------------------------
 
-// Resolve fixture path from the project root (where tsc / vitest are run).
-// process.cwd() is the project root in both environments.
 const FIXTURE_PATH = resolve(process.cwd(), 'tests', 'fixtures', 'e2e-fixture');
 
 // ---------------------------------------------------------------------------
@@ -105,15 +120,16 @@ const unusedReport: UnusedReport = {
 const options: AnalyzerOptions = { projectPath: FIXTURE_PATH };
 
 beforeEach(() => {
-  mockOutdated.mockReset();
-  mockUnused.mockReset();
-  mockBundleSize.mockReset();
-  mockLicenses.mockReset();
+  mocks.outdatedAnalyze.mockReset();
+  mocks.unusedAnalyze.mockReset();
+  mocks.bundleSizeAnalyze.mockReset();
+  mocks.licensesAnalyze.mockReset();
   mockReadPackageJson.mockReset();
-  mockOutdated.mockResolvedValue(outdatedPackages);
-  mockUnused.mockResolvedValue(unusedReport);
-  mockBundleSize.mockResolvedValue({ packages: [], totalGzip: 0, errors: [] });
-  mockLicenses.mockResolvedValue({ packages: [], conflicts: [] });
+
+  mocks.outdatedAnalyze.mockResolvedValue(ok(outdatedPackages));
+  mocks.unusedAnalyze.mockResolvedValue(ok(unusedReport));
+  mocks.bundleSizeAnalyze.mockResolvedValue(ok({ packages: [], totalGzip: 0 }));
+  mocks.licensesAnalyze.mockResolvedValue(ok({ packages: [], conflicts: [] }));
   mockReadPackageJson.mockResolvedValue({
     deps: { express: '^4.18.0', lodash: '^4.17.21', chalk: '^4.1.2' },
     devDeps: { typescript: '^5.0.0', vitest: '^1.0.0' },
@@ -162,7 +178,6 @@ describe('integration: terminal reporter', () => {
 
   it('contains the MAJOR bump label for express', async () => {
     const output = await runPipeline('terminal');
-    // chalk strips ANSI when chalk level is 0 in test env; check plain text
     expect(output).toMatch(/MAJOR/);
   });
 
@@ -191,25 +206,23 @@ describe('integration: terminal reporter', () => {
     expect(output.endsWith('\n')).toBe(true);
   });
 
-  it('calls the outdated analyzer with the fixture project path', async () => {
+  it('the outdated analyze method is called with options containing the fixture path', async () => {
     await runPipeline('terminal');
-    expect(mockOutdated).toHaveBeenCalledWith(
-      expect.any(Object) as Record<string, string>,
+    expect(mocks.outdatedAnalyze).toHaveBeenCalledWith(
       expect.objectContaining({ projectPath: FIXTURE_PATH }) as AnalyzerOptions,
     );
   });
 
-  it('calls the unused analyzer with the fixture project path', async () => {
+  it('the unused analyze method is called with options containing the fixture path', async () => {
     await runPipeline('terminal');
-    expect(mockUnused).toHaveBeenCalledWith(
-      expect.any(Object) as Record<string, string>,
+    expect(mocks.unusedAnalyze).toHaveBeenCalledWith(
       expect.objectContaining({ projectPath: FIXTURE_PATH }) as AnalyzerOptions,
     );
   });
 
   it('returns "All checks passed" when no issues are present', async () => {
-    mockOutdated.mockResolvedValue([]);
-    mockUnused.mockResolvedValue({ unused: [], missingFromPackageJson: [] });
+    mocks.outdatedAnalyze.mockResolvedValue(ok([]));
+    mocks.unusedAnalyze.mockResolvedValue(ok({ unused: [], missingFromPackageJson: [] }));
 
     const output = await runPipeline('terminal');
     expect(output).toContain('All checks passed');
@@ -288,24 +301,33 @@ describe('integration: markdown reporter', () => {
   });
 
   it('shows "No outdated packages found" when there are none', async () => {
-    mockOutdated.mockResolvedValue([]);
-    mockUnused.mockResolvedValue({ unused: [], missingFromPackageJson: [] });
+    mocks.outdatedAnalyze.mockResolvedValue(ok([]));
+    mocks.unusedAnalyze.mockResolvedValue(ok({ unused: [], missingFromPackageJson: [] }));
 
     const output = await runPipeline('markdown');
     expect(output).toContain('No outdated packages found');
   });
 
   it('shows "No unused dependencies found" when there are none', async () => {
-    mockOutdated.mockResolvedValue([]);
-    mockUnused.mockResolvedValue({ unused: [], missingFromPackageJson: [] });
+    mocks.outdatedAnalyze.mockResolvedValue(ok([]));
+    mocks.unusedAnalyze.mockResolvedValue(ok({ unused: [], missingFromPackageJson: [] }));
 
     const output = await runPipeline('markdown');
     expect(output).toContain('No unused dependencies found');
   });
 
-  it('calls both analyzers exactly once per pipeline run', async () => {
+  it('calls both analyzer analyze methods exactly once per pipeline run', async () => {
     await runPipeline('markdown');
-    expect(mockOutdated).toHaveBeenCalledTimes(1);
-    expect(mockUnused).toHaveBeenCalledTimes(1);
+    expect(mocks.outdatedAnalyze).toHaveBeenCalledTimes(1);
+    expect(mocks.unusedAnalyze).toHaveBeenCalledTimes(1);
+  });
+
+  it('captures analyzer errors in the report errors array', async () => {
+    mocks.outdatedAnalyze.mockResolvedValue(fail('outdated', 'registry down'));
+
+    const report = await analyze(options);
+
+    expect(report.errors).toHaveLength(1);
+    expect(report.errors[0]).toMatchObject({ analyzer: 'outdated', message: 'registry down' });
   });
 });

@@ -59,7 +59,7 @@ function makeLicenseEntry(overrides?: Partial<LicenseEntry>): LicenseEntry {
 function makeCleanReport(): FullReport {
   return {
     outdated: [],
-    bundleSize: { packages: [], totalGzip: 0, errors: [] },
+    bundleSize: { packages: [], totalGzip: 0 },
     licenses: { packages: [], conflicts: [] },
     unused: { unused: [], missingFromPackageJson: [] },
     score: 100,
@@ -114,7 +114,6 @@ function makeFullReport(): FullReport {
     bundleSize: {
       packages: [heavyEntry, lightEntry],
       totalGzip: heavyEntry.gzip + lightEntry.gzip,
-      errors: [],
     },
     licenses: {
       packages: [conflictLicense, mitLicense],
@@ -250,7 +249,7 @@ describe('formatTerminal', () => {
     const report: FullReport = {
       ...makeCleanReport(),
       score: 70,
-      bundleSize: { packages: [heavy], totalGzip: heavy.gzip, errors: [] },
+      bundleSize: { packages: [heavy], totalGzip: heavy.gzip },
     };
     const output = formatTerminal(report);
     expect(output).toContain('Bundle Size');
@@ -264,7 +263,7 @@ describe('formatTerminal', () => {
     const light = makeBundleSizeEntry({ heavy: false });
     const report: FullReport = {
       ...makeCleanReport(),
-      bundleSize: { packages: [light], totalGzip: light.gzip, errors: [] },
+      bundleSize: { packages: [light], totalGzip: light.gzip },
     };
     const output = formatTerminal(report);
     expect(output).not.toContain('Bundle Size');

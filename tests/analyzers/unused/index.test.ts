@@ -12,7 +12,15 @@ vi.mock('node:fs/promises', () => ({
 }));
 
 import { readdir, readFile } from 'node:fs/promises';
-import { analyze } from '../../../src/analyzers/unused/index';
+import { UnusedAnalyzer } from '../../../src/analyzers/unused/index';
+
+/** Run the UnusedAnalyzer and return only the result (throws if result is null). */
+async function analyze(depMap: DependencyMap, opts: AnalyzerOptions): Promise<{ unused: string[]; missingFromPackageJson: string[] }> {
+  const { result, error } = await new UnusedAnalyzer(depMap).analyze(opts);
+  if (error !== null && result === null) throw new Error(error.message);
+  if (result === null) throw new Error('Unexpected null result');
+  return result;
+}
 
 const mockReaddir = vi.mocked(readdir);
 const mockReadFile = vi.mocked(readFile);

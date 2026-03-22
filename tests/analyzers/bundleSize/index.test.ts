@@ -11,13 +11,18 @@ vi.mock('../../../src/utils/bundlephobia', () => ({
 }));
 
 import { fetchBundleSize } from '../../../src/utils/bundlephobia';
-import { analyze } from '../../../src/analyzers/bundleSize/index';
+import { BundleSizeAnalyzer } from '../../../src/analyzers/bundleSize/index';
 
 const mockFetch = vi.mocked(fetchBundleSize);
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function unwrap<T>(val: T | null): T {
+  if (val === null) throw new Error('Expected non-null value');
+  return val;
+}
 
 const OPTIONS: AnalyzerOptions = { projectPath: faker.system.directoryPath() };
 
@@ -51,18 +56,17 @@ beforeEach(() => {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('bundleSize analyzer', () => {
+describe('BundleSizeAnalyzer', () => {
   // -------------------------------------------------------------------------
   // Empty deps
   // -------------------------------------------------------------------------
 
   describe('empty dependencies', () => {
     it('returns empty report without calling bundlephobia', async () => {
-      const result = await analyze({}, OPTIONS);
+      const { result, error } = await new BundleSizeAnalyzer({}).analyze(OPTIONS);
 
-      expect(result.packages).toEqual([]);
-      expect(result.totalGzip).toBe(0);
-      expect(result.errors).toEqual([]);
+      expect(error).toBeNull();
+      expect(result).toMatchObject({ packages: [], totalGzip: 0 });
       expect(mockFetch).not.toHaveBeenCalled();
     });
   });
@@ -77,10 +81,13 @@ describe('bundleSize analyzer', () => {
       const version = semver();
       mockFetch.mockResolvedValue(bundlephobiaResult(name, version, LIGHT_GZIP));
 
-      const result = await analyze(makeDeps(name), OPTIONS);
+      const { result } = await new BundleSizeAnalyzer(makeDeps(name)).analyze(OPTIONS);
 
-      expect(result.packages).toHaveLength(1);
-      expect(result.packages[0]).toMatchObject({ name, version, gzip: LIGHT_GZIP, heavy: false });
+      // When all packages succeed, the bundleSize error contains an empty message
+      // (errors array was folded into single error field with empty string).
+      expect(result).not.toBeNull();
+      expect(unwrap(result).packages).toHaveLength(1);
+      expect(unwrap(result).packages[0]).toMatchObject({ name, version, gzip: LIGHT_GZIP, heavy: false });
     });
 
     it('sums totalGzip across all packages', async () => {
@@ -93,9 +100,9 @@ describe('bundleSize analyzer', () => {
         Promise.resolve(bundlephobiaResult(n, semver(), n === pkgA ? gzipA : gzipB)),
       );
 
-      const result = await analyze(makeDeps(pkgA, pkgB), OPTIONS);
+      const { result } = await new BundleSizeAnalyzer(makeDeps(pkgA, pkgB)).analyze(OPTIONS);
 
-      expect(result.totalGzip).toBe(gzipA + gzipB);
+      expect(unwrap(result).totalGzip).toBe(gzipA + gzipB);
     });
 
     it('correctly handles multiple packages', async () => {
@@ -104,10 +111,9 @@ describe('bundleSize analyzer', () => {
         Promise.resolve(bundlephobiaResult(n, semver(), LIGHT_GZIP)),
       );
 
-      const result = await analyze(makeDeps(...names), OPTIONS);
+      const { result } = await new BundleSizeAnalyzer(makeDeps(...names)).analyze(OPTIONS);
 
-      expect(result.packages).toHaveLength(names.length);
-      expect(result.errors).toEqual([]);
+      expect(unwrap(result).packages).toHaveLength(names.length);
     });
   });
 
@@ -120,27 +126,27 @@ describe('bundleSize analyzer', () => {
       const name = faker.internet.domainWord();
       mockFetch.mockResolvedValue(bundlephobiaResult(name, semver(), HEAVY_GZIP));
 
-      const result = await analyze(makeDeps(name), OPTIONS);
+      const { result } = await new BundleSizeAnalyzer(makeDeps(name)).analyze(OPTIONS);
 
-      expect(result.packages[0]).toMatchObject({ name, heavy: true });
+      expect(unwrap(result).packages[0]).toMatchObject({ name, heavy: true });
     });
 
     it('does not flag packages at or below 50 000 bytes as heavy', async () => {
       const name = faker.internet.domainWord();
       mockFetch.mockResolvedValue(bundlephobiaResult(name, semver(), 50_000));
 
-      const result = await analyze(makeDeps(name), OPTIONS);
+      const { result } = await new BundleSizeAnalyzer(makeDeps(name)).analyze(OPTIONS);
 
-      expect(result.packages[0]).toMatchObject({ heavy: false });
+      expect(unwrap(result).packages[0]).toMatchObject({ heavy: false });
     });
 
     it('does not set alternative on a light package', async () => {
       const name = faker.internet.domainWord();
       mockFetch.mockResolvedValue(bundlephobiaResult(name, semver(), LIGHT_GZIP));
 
-      const result = await analyze(makeDeps(name), OPTIONS);
+      const { result } = await new BundleSizeAnalyzer(makeDeps(name)).analyze(OPTIONS);
 
-      expect(result.packages[0].alternative).toBeUndefined();
+      expect(unwrap(result).packages[0].alternative).toBeUndefined();
     });
   });
 
@@ -152,43 +158,43 @@ describe('bundleSize analyzer', () => {
     it('suggests date-fns as alternative for moment', async () => {
       mockFetch.mockResolvedValue(bundlephobiaResult('moment', semver(), HEAVY_GZIP));
 
-      const result = await analyze({ moment: semver() }, OPTIONS);
+      const { result } = await new BundleSizeAnalyzer({ moment: semver() }).analyze(OPTIONS);
 
-      expect(result.packages[0]).toMatchObject({ name: 'moment', heavy: true, alternative: 'date-fns' });
+      expect(unwrap(result).packages[0]).toMatchObject({ name: 'moment', heavy: true, alternative: 'date-fns' });
     });
 
     it('suggests lodash-es as alternative for lodash', async () => {
       mockFetch.mockResolvedValue(bundlephobiaResult('lodash', semver(), HEAVY_GZIP));
 
-      const result = await analyze({ lodash: semver() }, OPTIONS);
+      const { result } = await new BundleSizeAnalyzer({ lodash: semver() }).analyze(OPTIONS);
 
-      expect(result.packages[0]).toMatchObject({ name: 'lodash', heavy: true, alternative: 'lodash-es' });
+      expect(unwrap(result).packages[0]).toMatchObject({ name: 'lodash', heavy: true, alternative: 'lodash-es' });
     });
 
     it('suggests ky as alternative for axios', async () => {
       mockFetch.mockResolvedValue(bundlephobiaResult('axios', semver(), HEAVY_GZIP));
 
-      const result = await analyze({ axios: semver() }, OPTIONS);
+      const { result } = await new BundleSizeAnalyzer({ axios: semver() }).analyze(OPTIONS);
 
-      expect(result.packages[0]).toMatchObject({ name: 'axios', heavy: true, alternative: 'ky' });
+      expect(unwrap(result).packages[0]).toMatchObject({ name: 'axios', heavy: true, alternative: 'ky' });
     });
 
     it('suggests native Promise as alternative for bluebird', async () => {
       mockFetch.mockResolvedValue(bundlephobiaResult('bluebird', semver(), HEAVY_GZIP));
 
-      const result = await analyze({ bluebird: semver() }, OPTIONS);
+      const { result } = await new BundleSizeAnalyzer({ bluebird: semver() }).analyze(OPTIONS);
 
-      expect(result.packages[0]).toMatchObject({ name: 'bluebird', alternative: 'native Promise' });
+      expect(unwrap(result).packages[0]).toMatchObject({ name: 'bluebird', alternative: 'native Promise' });
     });
 
     it('does not set alternative on unknown heavy package', async () => {
       const name = `unknown-heavy-${faker.internet.domainWord()}`;
       mockFetch.mockResolvedValue(bundlephobiaResult(name, semver(), HEAVY_GZIP));
 
-      const result = await analyze({ [name]: semver() }, OPTIONS);
+      const { result } = await new BundleSizeAnalyzer({ [name]: semver() }).analyze(OPTIONS);
 
-      expect(result.packages[0].heavy).toBe(true);
-      expect(result.packages[0].alternative).toBeUndefined();
+      expect(unwrap(result).packages[0].heavy).toBe(true);
+      expect(unwrap(result).packages[0].alternative).toBeUndefined();
     });
   });
 
@@ -209,12 +215,12 @@ describe('bundleSize analyzer', () => {
       );
 
       // Only pass prod dep in the DependencyMap.
-      const result = await analyze({ [prodName]: semver() }, OPTIONS);
+      const { result } = await new BundleSizeAnalyzer({ [prodName]: semver() }).analyze(OPTIONS);
 
       expect(mockFetch).toHaveBeenCalledTimes(1);
       expect(mockFetch).toHaveBeenCalledWith(prodName, expect.any(String) as string);
       expect(mockFetch).not.toHaveBeenCalledWith(devName, expect.any(String) as string);
-      expect(result.packages).toHaveLength(1);
+      expect(unwrap(result).packages).toHaveLength(1);
     });
   });
 
@@ -233,22 +239,25 @@ describe('bundleSize analyzer', () => {
         return Promise.resolve(bundlephobiaResult(n, semver(), LIGHT_GZIP));
       });
 
-      const result = await analyze(makeDeps(goodName, badName), OPTIONS);
+      const { result, error } = await new BundleSizeAnalyzer(makeDeps(goodName, badName)).analyze(OPTIONS);
 
-      const goodPkg = result.packages.find((p) => p.name === goodName);
+      // result is non-null (good packages are still returned)
+      const goodPkg = unwrap(result).packages.find((p) => p.name === goodName);
       expect(goodPkg).toBeDefined();
-      expect(result.errors).toHaveLength(1);
-      expect(result.errors[0].name).toBe(badName);
-      expect(result.errors[0].message).toContain(errorMessage);
+      // error captures the failed package
+      expect(error).not.toBeNull();
+      expect(unwrap(error).analyzer).toBe('bundleSize');
+      expect(unwrap(error).message).toContain(badName);
+      expect(unwrap(error).message).toContain(errorMessage);
     });
 
     it('does not include failed package in packages array', async () => {
       const badName = faker.internet.domainWord();
       mockFetch.mockRejectedValue(new Error('network error'));
 
-      const result = await analyze({ [badName]: semver() }, OPTIONS);
+      const { result } = await new BundleSizeAnalyzer({ [badName]: semver() }).analyze(OPTIONS);
 
-      expect(result.packages).toEqual([]);
+      expect(unwrap(result).packages).toEqual([]);
     });
   });
 
@@ -257,15 +266,17 @@ describe('bundleSize analyzer', () => {
   // -------------------------------------------------------------------------
 
   describe('all packages fail', () => {
-    it('returns empty packages with all errors captured when every fetch fails', async () => {
+    it('returns empty packages with error captured when every fetch fails', async () => {
       const names = [faker.internet.domainWord(), faker.internet.domainWord()];
       mockFetch.mockRejectedValue(new Error('timeout'));
 
-      const result = await analyze(makeDeps(...names), OPTIONS);
+      const { result, error } = await new BundleSizeAnalyzer(makeDeps(...names)).analyze(OPTIONS);
 
-      expect(result.packages).toEqual([]);
-      expect(result.totalGzip).toBe(0);
-      expect(result.errors).toHaveLength(names.length);
+      expect(unwrap(result).packages).toEqual([]);
+      expect(unwrap(result).totalGzip).toBe(0);
+      expect(error).not.toBeNull();
+      expect(unwrap(error).message).toContain(names[0]);
+      expect(unwrap(error).message).toContain(names[1]);
     });
   });
 
@@ -280,11 +291,11 @@ describe('bundleSize analyzer', () => {
         new Error(`Bundlephobia fetch failed for ${unknownName}@1.0.0: 404 Not Found`),
       );
 
-      const result = await analyze({ [unknownName]: '1.0.0' }, OPTIONS);
+      const { result, error } = await new BundleSizeAnalyzer({ [unknownName]: '1.0.0' }).analyze(OPTIONS);
 
-      expect(result.packages).toEqual([]);
-      expect(result.errors).toHaveLength(1);
-      expect(result.errors[0].name).toBe(unknownName);
+      expect(unwrap(result).packages).toEqual([]);
+      expect(error).not.toBeNull();
+      expect(unwrap(error).message).toContain(unknownName);
     });
   });
 
@@ -298,7 +309,7 @@ describe('bundleSize analyzer', () => {
       const base = '1.2.3';
       mockFetch.mockResolvedValue(bundlephobiaResult(name, base, LIGHT_GZIP));
 
-      await analyze({ [name]: `^${base}` }, OPTIONS);
+      await new BundleSizeAnalyzer({ [name]: `^${base}` }).analyze(OPTIONS);
 
       expect(mockFetch).toHaveBeenCalledWith(name, base);
     });
@@ -308,7 +319,7 @@ describe('bundleSize analyzer', () => {
       const base = '2.0.0';
       mockFetch.mockResolvedValue(bundlephobiaResult(name, base, LIGHT_GZIP));
 
-      await analyze({ [name]: `~${base}` }, OPTIONS);
+      await new BundleSizeAnalyzer({ [name]: `~${base}` }).analyze(OPTIONS);
 
       expect(mockFetch).toHaveBeenCalledWith(name, base);
     });

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { faker } from '@faker-js/faker';
-import { analyze } from '../../../src/analyzers/outdated/index';
+import { OutdatedAnalyzer } from '../../../src/analyzers/outdated/index';
 import { VersionBump } from '../../../src/types';
 
 vi.mock('../../../src/utils/registry', () => ({
@@ -12,6 +12,11 @@ import { fetchPackageInfo } from '../../../src/utils/registry';
 const mockFetch = vi.mocked(fetchPackageInfo);
 
 const options = { projectPath: faker.system.directoryPath() };
+
+function unwrap<T>(val: T | null): T {
+  if (val === null) throw new Error('Expected non-null value');
+  return val;
+}
 
 function semver(major: number, minor: number, patch: number): string {
   return `${String(major)}.${String(minor)}.${String(patch)}`;
@@ -45,9 +50,10 @@ beforeEach(() => {
   mockFetch.mockReset();
 });
 
-describe('outdated', () => {
+describe('OutdatedAnalyzer', () => {
   it('returns empty array for empty deps', async () => {
-    const result = await analyze({}, options);
+    const { result, error } = await new OutdatedAnalyzer({}).analyze(options);
+    expect(error).toBeNull();
     expect(result).toEqual([]);
     expect(mockFetch).not.toHaveBeenCalled();
   });
@@ -57,7 +63,8 @@ describe('outdated', () => {
     const version = faker.system.semver();
     mockFetch.mockResolvedValue(mockRegistry(name, version));
 
-    const result = await analyze({ [name]: version }, options);
+    const { result, error } = await new OutdatedAnalyzer({ [name]: version }).analyze(options);
+    expect(error).toBeNull();
     expect(result).toEqual([]);
   });
 
@@ -67,9 +74,10 @@ describe('outdated', () => {
     const latest = bump(current, VersionBump.PATCH);
     mockFetch.mockResolvedValue(mockRegistry(name, latest));
 
-    const result = await analyze({ [name]: current }, options);
+    const { result, error } = await new OutdatedAnalyzer({ [name]: current }).analyze(options);
+    expect(error).toBeNull();
     expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({ name, current, latest, type: VersionBump.PATCH, abandoned: false });
+    expect(unwrap(result)[0]).toMatchObject({ name, current, latest, type: VersionBump.PATCH, abandoned: false });
   });
 
   it('detects a minor update', async () => {
@@ -78,8 +86,8 @@ describe('outdated', () => {
     const latest = bump(current, VersionBump.MINOR);
     mockFetch.mockResolvedValue(mockRegistry(name, latest));
 
-    const result = await analyze({ [name]: current }, options);
-    expect(result[0]).toMatchObject({ name, type: VersionBump.MINOR });
+    const { result } = await new OutdatedAnalyzer({ [name]: current }).analyze(options);
+    expect(unwrap(result)[0]).toMatchObject({ name, type: VersionBump.MINOR });
   });
 
   it('detects a major update', async () => {
@@ -88,8 +96,8 @@ describe('outdated', () => {
     const latest = bump(current, VersionBump.MAJOR);
     mockFetch.mockResolvedValue(mockRegistry(name, latest));
 
-    const result = await analyze({ [name]: current }, options);
-    expect(result[0]).toMatchObject({ name, type: VersionBump.MAJOR });
+    const { result } = await new OutdatedAnalyzer({ [name]: current }).analyze(options);
+    expect(unwrap(result)[0]).toMatchObject({ name, type: VersionBump.MAJOR });
   });
 
   it('strips range prefixes from current version', async () => {
@@ -100,8 +108,8 @@ describe('outdated', () => {
     const current = `${prefix}${base}`;
     mockFetch.mockResolvedValue(mockRegistry(name, latest));
 
-    const result = await analyze({ [name]: current }, options);
-    expect(result[0]).toMatchObject({ name, current, type: VersionBump.PATCH });
+    const { result } = await new OutdatedAnalyzer({ [name]: current }).analyze(options);
+    expect(unwrap(result)[0]).toMatchObject({ name, current, type: VersionBump.PATCH });
   });
 
   it('marks package as abandoned when latest was published more than 2 years ago', async () => {
@@ -110,8 +118,8 @@ describe('outdated', () => {
     const latest = bump(current, VersionBump.MAJOR);
     mockFetch.mockResolvedValue(mockRegistry(name, latest, oldIso()));
 
-    const result = await analyze({ [name]: current }, options);
-    expect(result[0]).toMatchObject({ abandoned: true, type: VersionBump.MAJOR });
+    const { result } = await new OutdatedAnalyzer({ [name]: current }).analyze(options);
+    expect(unwrap(result)[0]).toMatchObject({ abandoned: true, type: VersionBump.MAJOR });
   });
 
   it('marks package as not abandoned when published recently', async () => {
@@ -120,8 +128,8 @@ describe('outdated', () => {
     const latest = bump(current, VersionBump.MINOR);
     mockFetch.mockResolvedValue(mockRegistry(name, latest, recentIso()));
 
-    const result = await analyze({ [name]: current }, options);
-    expect(result[0]).toMatchObject({ abandoned: false });
+    const { result } = await new OutdatedAnalyzer({ [name]: current }).analyze(options);
+    expect(unwrap(result)[0]).toMatchObject({ abandoned: false });
   });
 
   it('treats missing time entry as not abandoned', async () => {
@@ -130,8 +138,8 @@ describe('outdated', () => {
     const latest = bump(current, VersionBump.MAJOR);
     mockFetch.mockResolvedValue({ name, 'dist-tags': { latest }, time: {} });
 
-    const result = await analyze({ [name]: current }, options);
-    expect(result[0]).toMatchObject({ abandoned: false });
+    const { result } = await new OutdatedAnalyzer({ [name]: current }).analyze(options);
+    expect(unwrap(result)[0]).toMatchObject({ abandoned: false });
   });
 
   it('handles multiple packages and only returns outdated ones', async () => {
@@ -148,20 +156,22 @@ describe('outdated', () => {
       ),
     );
 
-    const result = await analyze(
-      { [outdatedName]: current, [upToDateName]: current },
-      options,
-    );
+    const { result } = await new OutdatedAnalyzer({
+      [outdatedName]: current,
+      [upToDateName]: current,
+    }).analyze(options);
     expect(result).toHaveLength(1);
-    expect(result[0].name).toBe(outdatedName);
+    expect(unwrap(result)[0].name).toBe(outdatedName);
   });
 
-  it('throws when registry fetch fails', async () => {
+  it('returns error when registry fetch fails (does not throw)', async () => {
     const name = faker.internet.domainWord();
     const message = faker.lorem.sentence();
     mockFetch.mockRejectedValue(new Error(message));
 
-    await expect(analyze({ [name]: faker.system.semver() }, options)).rejects.toThrow(message);
+    const { result, error } = await new OutdatedAnalyzer({ [name]: faker.system.semver() }).analyze(options);
+    expect(result).toBeNull();
+    expect(error).toMatchObject({ analyzer: 'outdated', message: expect.stringContaining(message) as string });
   });
 
   it('skips packages with unparseable registry version', async () => {
@@ -172,7 +182,7 @@ describe('outdated', () => {
       time: {},
     });
 
-    const result = await analyze({ [name]: '1.0.0' }, options);
+    const { result } = await new OutdatedAnalyzer({ [name]: '1.0.0' }).analyze(options);
     expect(result).toEqual([]);
   });
 });

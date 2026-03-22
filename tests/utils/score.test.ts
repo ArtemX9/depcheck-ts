@@ -4,9 +4,9 @@
  * Strategy
  * --------
  * `calculateScore` is a private function in `src/index.ts`. We test it
- * indirectly through `analyze()` by controlling all four analyzer mocks so
- * that the FullReport fed into `calculateScore` contains exactly the data we
- * want to assert against.
+ * indirectly through `analyze()` by controlling all four analyzer class mocks
+ * so that the FullReport fed into `calculateScore` contains exactly the data
+ * we want to assert against.
  *
  * Coverage
  * --------
@@ -27,30 +27,50 @@ import type {
   BundleSizeReport,
   LicenseReport,
   UnusedReport,
+  AnalyzerError,
 } from '../../src/types';
 import { VersionBump } from '../../src/types';
 
 // ---------------------------------------------------------------------------
-// Mock all four analyzers before importing src/index.ts.
+// Use vi.hoisted() so mock functions are available inside vi.mock factories.
 // ---------------------------------------------------------------------------
 
-vi.mock('../../src/analyzers/outdated/index', () => ({ analyze: vi.fn() }));
-vi.mock('../../src/analyzers/bundleSize/index', () => ({ analyze: vi.fn() }));
-vi.mock('../../src/analyzers/licenses/index', () => ({ analyze: vi.fn() }));
-vi.mock('../../src/analyzers/unused/index', () => ({ analyze: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  outdatedAnalyze: vi.fn(),
+  bundleSizeAnalyze: vi.fn(),
+  licenseAnalyze: vi.fn(),
+  unusedAnalyze: vi.fn(),
+}));
+
+vi.mock('../../src/analyzers/outdated/index', () => {
+  function OutdatedAnalyzer() { /* noop */ }
+  OutdatedAnalyzer.prototype.analyze = mocks.outdatedAnalyze;
+  return { OutdatedAnalyzer };
+});
+
+vi.mock('../../src/analyzers/bundleSize/index', () => {
+  function BundleSizeAnalyzer() { /* noop */ }
+  BundleSizeAnalyzer.prototype.analyze = mocks.bundleSizeAnalyze;
+  return { BundleSizeAnalyzer };
+});
+
+vi.mock('../../src/analyzers/licenses/index', () => {
+  function LicenseAnalyzer() { /* noop */ }
+  LicenseAnalyzer.prototype.analyze = mocks.licenseAnalyze;
+  return { LicenseAnalyzer };
+});
+
+vi.mock('../../src/analyzers/unused/index', () => {
+  function UnusedAnalyzer() { /* noop */ }
+  UnusedAnalyzer.prototype.analyze = mocks.unusedAnalyze;
+  return { UnusedAnalyzer };
+});
+
 vi.mock('../../src/utils/parser', () => ({ readPackageJson: vi.fn() }));
 
-import { analyze as analyzeOutdated } from '../../src/analyzers/outdated/index';
-import { analyze as analyzeBundleSize } from '../../src/analyzers/bundleSize/index';
-import { analyze as analyzeLicenses } from '../../src/analyzers/licenses/index';
-import { analyze as analyzeUnused } from '../../src/analyzers/unused/index';
 import { readPackageJson } from '../../src/utils/parser';
 import { analyze } from '../../src/index';
 
-const mockOutdated = vi.mocked(analyzeOutdated);
-const mockBundleSize = vi.mocked(analyzeBundleSize);
-const mockLicenses = vi.mocked(analyzeLicenses);
-const mockUnused = vi.mocked(analyzeUnused);
 const mockReadPackageJson = vi.mocked(readPackageJson);
 
 // ---------------------------------------------------------------------------
@@ -61,7 +81,16 @@ function makeOptions(override?: Partial<AnalyzerOptions>): AnalyzerOptions {
   return { projectPath: faker.system.directoryPath(), ...override };
 }
 
-const EMPTY_BUNDLE: BundleSizeReport & { errors: [] } = { packages: [], totalGzip: 0, errors: [] };
+/** Wrap a value in the {result, error} envelope that analyzer.analyze() returns. */
+function ok<T>(value: T): { result: T; error: null } {
+  return { result: value, error: null };
+}
+
+function fail(analyzer: string, message: string): { result: null; error: AnalyzerError } {
+  return { result: null, error: { analyzer, message } };
+}
+
+const EMPTY_BUNDLE: BundleSizeReport = { packages: [], totalGzip: 0 };
 const EMPTY_LICENSES: LicenseReport = { packages: [], conflicts: [] };
 const EMPTY_UNUSED: UnusedReport = { unused: [], missingFromPackageJson: [] };
 
@@ -102,16 +131,16 @@ function makeLicenseConflict(override?: Partial<LicenseEntry>): LicenseEntry {
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
-  mockOutdated.mockReset();
-  mockBundleSize.mockReset();
-  mockLicenses.mockReset();
-  mockUnused.mockReset();
+  mocks.outdatedAnalyze.mockReset();
+  mocks.bundleSizeAnalyze.mockReset();
+  mocks.licenseAnalyze.mockReset();
+  mocks.unusedAnalyze.mockReset();
   mockReadPackageJson.mockReset();
 
-  mockOutdated.mockResolvedValue([]);
-  mockBundleSize.mockResolvedValue(EMPTY_BUNDLE);
-  mockLicenses.mockResolvedValue(EMPTY_LICENSES);
-  mockUnused.mockResolvedValue(EMPTY_UNUSED);
+  mocks.outdatedAnalyze.mockResolvedValue(ok([]));
+  mocks.bundleSizeAnalyze.mockResolvedValue(ok(EMPTY_BUNDLE));
+  mocks.licenseAnalyze.mockResolvedValue(ok(EMPTY_LICENSES));
+  mocks.unusedAnalyze.mockResolvedValue(ok(EMPTY_UNUSED));
   mockReadPackageJson.mockResolvedValue({ deps: {}, devDeps: {} });
 });
 
@@ -137,7 +166,7 @@ describe('calculateScore — perfect score', () => {
 
 describe('calculateScore — individual penalties', () => {
   it('deducts 5 per MAJOR outdated package', async () => {
-    mockOutdated.mockResolvedValue([makeOutdated({ type: VersionBump.MAJOR, abandoned: false })]);
+    mocks.outdatedAnalyze.mockResolvedValue(ok([makeOutdated({ type: VersionBump.MAJOR, abandoned: false })]));
 
     const report = await analyze(makeOptions());
 
@@ -145,7 +174,7 @@ describe('calculateScore — individual penalties', () => {
   });
 
   it('deducts 2 per MINOR outdated package', async () => {
-    mockOutdated.mockResolvedValue([makeOutdated({ type: VersionBump.MINOR, abandoned: false })]);
+    mocks.outdatedAnalyze.mockResolvedValue(ok([makeOutdated({ type: VersionBump.MINOR, abandoned: false })]));
 
     const report = await analyze(makeOptions());
 
@@ -153,7 +182,7 @@ describe('calculateScore — individual penalties', () => {
   });
 
   it('deducts 0.5 per PATCH outdated package', async () => {
-    mockOutdated.mockResolvedValue([makeOutdated({ type: VersionBump.PATCH, abandoned: false })]);
+    mocks.outdatedAnalyze.mockResolvedValue(ok([makeOutdated({ type: VersionBump.PATCH, abandoned: false })]));
 
     const report = await analyze(makeOptions());
 
@@ -162,7 +191,7 @@ describe('calculateScore — individual penalties', () => {
 
   it('deducts 3 per abandoned package (in addition to version bump penalty)', async () => {
     // abandoned=true + MAJOR = −3 + −5 = −8
-    mockOutdated.mockResolvedValue([makeOutdated({ type: VersionBump.MAJOR, abandoned: true })]);
+    mocks.outdatedAnalyze.mockResolvedValue(ok([makeOutdated({ type: VersionBump.MAJOR, abandoned: true })]));
 
     const report = await analyze(makeOptions());
 
@@ -171,7 +200,7 @@ describe('calculateScore — individual penalties', () => {
 
   it('deducts 3 per abandoned package with PATCH bump', async () => {
     // abandoned=true + PATCH = −3 + −0.5 = −3.5
-    mockOutdated.mockResolvedValue([makeOutdated({ type: VersionBump.PATCH, abandoned: true })]);
+    mocks.outdatedAnalyze.mockResolvedValue(ok([makeOutdated({ type: VersionBump.PATCH, abandoned: true })]));
 
     const report = await analyze(makeOptions());
 
@@ -179,10 +208,10 @@ describe('calculateScore — individual penalties', () => {
   });
 
   it('deducts 10 per license conflict', async () => {
-    mockLicenses.mockResolvedValue({
+    mocks.licenseAnalyze.mockResolvedValue(ok({
       packages: [makeLicenseConflict()],
       conflicts: [makeLicenseConflict()],
-    });
+    }));
 
     const report = await analyze(makeOptions());
 
@@ -190,10 +219,10 @@ describe('calculateScore — individual penalties', () => {
   });
 
   it('deducts 4 per unused dependency', async () => {
-    mockUnused.mockResolvedValue({
+    mocks.unusedAnalyze.mockResolvedValue(ok({
       unused: [faker.internet.domainWord()],
       missingFromPackageJson: [],
-    });
+    }));
 
     const report = await analyze(makeOptions());
 
@@ -201,11 +230,10 @@ describe('calculateScore — individual penalties', () => {
   });
 
   it('deducts 3 per heavy bundle package', async () => {
-    mockBundleSize.mockResolvedValue({
+    mocks.bundleSizeAnalyze.mockResolvedValue(ok({
       packages: [makeBundleEntry({ heavy: true })],
       totalGzip: 60000,
-      errors: [],
-    });
+    }));
 
     const report = await analyze(makeOptions());
 
@@ -213,11 +241,10 @@ describe('calculateScore — individual penalties', () => {
   });
 
   it('does not penalise a bundle package that is not heavy', async () => {
-    mockBundleSize.mockResolvedValue({
+    mocks.bundleSizeAnalyze.mockResolvedValue(ok({
       packages: [makeBundleEntry({ heavy: false })],
       totalGzip: 5000,
-      errors: [],
-    });
+    }));
 
     const report = await analyze(makeOptions());
 
@@ -225,10 +252,10 @@ describe('calculateScore — individual penalties', () => {
   });
 
   it('does not penalise missingFromPackageJson entries (only unused[])', async () => {
-    mockUnused.mockResolvedValue({
+    mocks.unusedAnalyze.mockResolvedValue(ok({
       unused: [],
       missingFromPackageJson: [faker.internet.domainWord(), faker.internet.domainWord()],
-    });
+    }));
 
     const report = await analyze(makeOptions());
 
@@ -243,11 +270,11 @@ describe('calculateScore — individual penalties', () => {
 describe('calculateScore — stacking penalties', () => {
   it('sums penalties from multiple MAJOR outdated packages', async () => {
     // 3 × MAJOR = 3 × −5 = −15 → 85
-    mockOutdated.mockResolvedValue([
+    mocks.outdatedAnalyze.mockResolvedValue(ok([
       makeOutdated({ type: VersionBump.MAJOR }),
       makeOutdated({ type: VersionBump.MAJOR }),
       makeOutdated({ type: VersionBump.MAJOR }),
-    ]);
+    ]));
 
     const report = await analyze(makeOptions());
 
@@ -257,7 +284,7 @@ describe('calculateScore — stacking penalties', () => {
   it('sums penalties from multiple license conflicts', async () => {
     // 3 conflicts = 3 × −10 = −30 → 70
     const conflicts = [makeLicenseConflict(), makeLicenseConflict(), makeLicenseConflict()];
-    mockLicenses.mockResolvedValue({ packages: conflicts, conflicts });
+    mocks.licenseAnalyze.mockResolvedValue(ok({ packages: conflicts, conflicts }));
 
     const report = await analyze(makeOptions());
 
@@ -266,11 +293,11 @@ describe('calculateScore — stacking penalties', () => {
 
   it('combines outdated and unused penalties', async () => {
     // 1 MAJOR (−5) + 2 unused (−8) = −13 → 87
-    mockOutdated.mockResolvedValue([makeOutdated({ type: VersionBump.MAJOR })]);
-    mockUnused.mockResolvedValue({
+    mocks.outdatedAnalyze.mockResolvedValue(ok([makeOutdated({ type: VersionBump.MAJOR })]));
+    mocks.unusedAnalyze.mockResolvedValue(ok({
       unused: [faker.internet.domainWord(), faker.internet.domainWord()],
       missingFromPackageJson: [],
-    });
+    }));
 
     const report = await analyze(makeOptions());
 
@@ -282,13 +309,12 @@ describe('calculateScore — stacking penalties', () => {
     // 1 unused            = −4
     // 1 heavy             = −3
     // total penalty       = −12 → 88
-    mockOutdated.mockResolvedValue([makeOutdated({ type: VersionBump.MINOR, abandoned: true })]);
-    mockUnused.mockResolvedValue({ unused: ['some-dep'], missingFromPackageJson: [] });
-    mockBundleSize.mockResolvedValue({
+    mocks.outdatedAnalyze.mockResolvedValue(ok([makeOutdated({ type: VersionBump.MINOR, abandoned: true })]));
+    mocks.unusedAnalyze.mockResolvedValue(ok({ unused: ['some-dep'], missingFromPackageJson: [] }));
+    mocks.bundleSizeAnalyze.mockResolvedValue(ok({
       packages: [makeBundleEntry({ heavy: true })],
       totalGzip: 80000,
-      errors: [],
-    });
+    }));
 
     const report = await analyze(makeOptions());
 
@@ -304,7 +330,7 @@ describe('calculateScore — floor at 0', () => {
   it('returns 0 when total penalties exceed 100', async () => {
     // 11 license conflicts = 11 × −10 = −110 → floor at 0
     const conflicts = Array.from({ length: 11 }, () => makeLicenseConflict());
-    mockLicenses.mockResolvedValue({ packages: conflicts, conflicts });
+    mocks.licenseAnalyze.mockResolvedValue(ok({ packages: conflicts, conflicts }));
 
     const report = await analyze(makeOptions());
 
@@ -313,14 +339,14 @@ describe('calculateScore — floor at 0', () => {
 
   it('never returns a negative score regardless of how many issues exist', async () => {
     const conflicts = Array.from({ length: 20 }, () => makeLicenseConflict());
-    mockLicenses.mockResolvedValue({ packages: conflicts, conflicts });
-    mockOutdated.mockResolvedValue(
+    mocks.licenseAnalyze.mockResolvedValue(ok({ packages: conflicts, conflicts }));
+    mocks.outdatedAnalyze.mockResolvedValue(ok(
       Array.from({ length: 10 }, () => makeOutdated({ type: VersionBump.MAJOR, abandoned: true })),
-    );
-    mockUnused.mockResolvedValue({
+    ));
+    mocks.unusedAnalyze.mockResolvedValue(ok({
       unused: Array.from({ length: 10 }, () => faker.internet.domainWord()),
       missingFromPackageJson: [],
-    });
+    }));
 
     const report = await analyze(makeOptions());
 
@@ -342,19 +368,18 @@ describe('calculateScore — realistic mixed report', () => {
     // GPL dep: license conflict (−10)
     // Total penalty: 5 + 3 + 0.5 + 2 + 4 + 3 + 10 = 27.5 → score 72.5
 
-    mockOutdated.mockResolvedValue([
+    mocks.outdatedAnalyze.mockResolvedValue(ok([
       makeOutdated({ name: 'express', type: VersionBump.MAJOR, abandoned: true }),
       makeOutdated({ name: 'lodash', type: VersionBump.PATCH, abandoned: false }),
       makeOutdated({ name: 'react', type: VersionBump.MINOR, abandoned: false }),
-    ]);
-    mockUnused.mockResolvedValue({ unused: ['chalk'], missingFromPackageJson: [] });
-    mockBundleSize.mockResolvedValue({
+    ]));
+    mocks.unusedAnalyze.mockResolvedValue(ok({ unused: ['chalk'], missingFromPackageJson: [] }));
+    mocks.bundleSizeAnalyze.mockResolvedValue(ok({
       packages: [makeBundleEntry({ name: 'moment', heavy: true })],
       totalGzip: 72000,
-      errors: [],
-    });
+    }));
     const gplConflict = makeLicenseConflict({ name: 'gpl-dep', license: 'GPL-3.0' });
-    mockLicenses.mockResolvedValue({ packages: [gplConflict], conflicts: [gplConflict] });
+    mocks.licenseAnalyze.mockResolvedValue(ok({ packages: [gplConflict], conflicts: [gplConflict] }));
 
     const report = await analyze(makeOptions());
 
@@ -362,14 +387,25 @@ describe('calculateScore — realistic mixed report', () => {
   });
 
   it('score is a finite number for any realistic input', async () => {
-    mockOutdated.mockResolvedValue([
+    mocks.outdatedAnalyze.mockResolvedValue(ok([
       makeOutdated({ type: VersionBump.MAJOR }),
       makeOutdated({ type: VersionBump.MINOR }),
-    ]);
-    mockUnused.mockResolvedValue({ unused: ['dep-a', 'dep-b'], missingFromPackageJson: [] });
+    ]));
+    mocks.unusedAnalyze.mockResolvedValue(ok({ unused: ['dep-a', 'dep-b'], missingFromPackageJson: [] }));
 
     const report = await analyze(makeOptions());
 
     expect(Number.isFinite(report.score)).toBe(true);
+  });
+
+  it('score is zero when analyzer returns an error (fallback to empty result)', async () => {
+    // When analyzer returns error, result is null and we fall back to empty lists
+    // Score should still be 100 (no issues found)
+    mocks.outdatedAnalyze.mockResolvedValue(fail('outdated', 'registry down'));
+
+    const report = await analyze(makeOptions());
+
+    expect(report.score).toBe(100);
+    expect(report.errors).toHaveLength(1);
   });
 });

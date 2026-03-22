@@ -1,24 +1,51 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { faker } from '@faker-js/faker';
-import type { OutdatedPackage, AnalyzerOptions } from '../src/types';
+import type { OutdatedPackage, AnalyzerOptions, AnalyzerError } from '../src/types';
 import { VersionBump } from '../src/types';
 
-// Mock the outdated analyzer — the only analyzer with real logic in src/index.ts.
-// The bundle-size, licenses, and unused runners are stubs; we test them via their
-// fallback / error-capture paths below.
-vi.mock('../src/analyzers/outdated/index', () => ({
-  analyze: vi.fn(),
+// ---------------------------------------------------------------------------
+// Use vi.hoisted() so the mock functions are available before the vi.mock
+// factory runs (vi.mock factories are hoisted to the top of the file).
+// ---------------------------------------------------------------------------
+
+const mocks = vi.hoisted(() => ({
+  outdatedAnalyze: vi.fn(),
+  bundleSizeAnalyze: vi.fn(),
+  licenseAnalyze: vi.fn(),
+  unusedAnalyze: vi.fn(),
 }));
+
+vi.mock('../src/analyzers/outdated/index', () => {
+  function OutdatedAnalyzer() { /* noop */ }
+  OutdatedAnalyzer.prototype.analyze = mocks.outdatedAnalyze;
+  return { OutdatedAnalyzer };
+});
+
+vi.mock('../src/analyzers/bundleSize/index', () => {
+  function BundleSizeAnalyzer() { /* noop */ }
+  BundleSizeAnalyzer.prototype.analyze = mocks.bundleSizeAnalyze;
+  return { BundleSizeAnalyzer };
+});
+
+vi.mock('../src/analyzers/licenses/index', () => {
+  function LicenseAnalyzer() { /* noop */ }
+  LicenseAnalyzer.prototype.analyze = mocks.licenseAnalyze;
+  return { LicenseAnalyzer };
+});
+
+vi.mock('../src/analyzers/unused/index', () => {
+  function UnusedAnalyzer() { /* noop */ }
+  UnusedAnalyzer.prototype.analyze = mocks.unusedAnalyze;
+  return { UnusedAnalyzer };
+});
 
 vi.mock('../src/utils/parser', () => ({
   readPackageJson: vi.fn(),
 }));
 
-import { analyze as analyzeOutdated } from '../src/analyzers/outdated/index';
 import { readPackageJson } from '../src/utils/parser';
 import { analyze } from '../src/index';
 
-const mockAnalyzeOutdated = vi.mocked(analyzeOutdated);
 const mockReadPackageJson = vi.mocked(readPackageJson);
 
 // ---------------------------------------------------------------------------
@@ -40,14 +67,32 @@ function makeOutdatedPackage(override?: Partial<OutdatedPackage>): OutdatedPacka
   };
 }
 
+/** Wrap a value in the {result, error} envelope that analyzer.analyze() returns. */
+function ok<T>(value: T): { result: T; error: null } {
+  return { result: value, error: null };
+}
+
+function fail(analyzer: string, message: string): { result: null; error: AnalyzerError } {
+  return { result: null, error: { analyzer, message } };
+}
+
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
-  mockAnalyzeOutdated.mockReset();
+  mocks.outdatedAnalyze.mockReset();
+  mocks.bundleSizeAnalyze.mockReset();
+  mocks.licenseAnalyze.mockReset();
+  mocks.unusedAnalyze.mockReset();
   mockReadPackageJson.mockReset();
+
+  // Default: empty deps, all analyzers return clean empty results.
   mockReadPackageJson.mockResolvedValue({ deps: {}, devDeps: {} });
+  mocks.outdatedAnalyze.mockResolvedValue(ok([]));
+  mocks.bundleSizeAnalyze.mockResolvedValue(ok({ packages: [], totalGzip: 0 }));
+  mocks.licenseAnalyze.mockResolvedValue(ok({ packages: [], conflicts: [] }));
+  mocks.unusedAnalyze.mockResolvedValue(ok({ unused: [], missingFromPackageJson: [] }));
 });
 
 // ---------------------------------------------------------------------------
@@ -57,8 +102,6 @@ beforeEach(() => {
 describe('analyze()', () => {
   describe('return shape', () => {
     it('always returns a FullReport with all required keys', async () => {
-      mockAnalyzeOutdated.mockResolvedValue([]);
-
       const report = await analyze(makeOptions());
 
       expect(report).toHaveProperty('outdated');
@@ -70,8 +113,6 @@ describe('analyze()', () => {
     });
 
     it('bundleSize always has packages array and totalGzip', async () => {
-      mockAnalyzeOutdated.mockResolvedValue([]);
-
       const report = await analyze(makeOptions());
 
       expect(Array.isArray(report.bundleSize.packages)).toBe(true);
@@ -79,8 +120,6 @@ describe('analyze()', () => {
     });
 
     it('licenses always has packages and conflicts arrays', async () => {
-      mockAnalyzeOutdated.mockResolvedValue([]);
-
       const report = await analyze(makeOptions());
 
       expect(Array.isArray(report.licenses.packages)).toBe(true);
@@ -88,8 +127,6 @@ describe('analyze()', () => {
     });
 
     it('unused always has unused and missingFromPackageJson arrays', async () => {
-      mockAnalyzeOutdated.mockResolvedValue([]);
-
       const report = await analyze(makeOptions());
 
       expect(Array.isArray(report.unused.unused)).toBe(true);
@@ -97,8 +134,6 @@ describe('analyze()', () => {
     });
 
     it('errors is always an array', async () => {
-      mockAnalyzeOutdated.mockResolvedValue([]);
-
       const report = await analyze(makeOptions());
 
       expect(Array.isArray(report.errors)).toBe(true);
@@ -112,7 +147,7 @@ describe('analyze()', () => {
   describe('happy path', () => {
     it('propagates outdated packages returned by the outdated analyzer', async () => {
       const pkg = makeOutdatedPackage({ type: VersionBump.MAJOR });
-      mockAnalyzeOutdated.mockResolvedValue([pkg]);
+      mocks.outdatedAnalyze.mockResolvedValue(ok([pkg]));
 
       const report = await analyze(makeOptions());
 
@@ -121,7 +156,7 @@ describe('analyze()', () => {
     });
 
     it('returns an empty outdated array when all packages are up to date', async () => {
-      mockAnalyzeOutdated.mockResolvedValue([]);
+      mocks.outdatedAnalyze.mockResolvedValue(ok([]));
 
       const report = await analyze(makeOptions());
 
@@ -132,7 +167,7 @@ describe('analyze()', () => {
     it('returns multiple outdated packages', async () => {
       const count = faker.number.int({ min: 2, max: 5 });
       const packages = Array.from({ length: count }, () => makeOutdatedPackage());
-      mockAnalyzeOutdated.mockResolvedValue(packages);
+      mocks.outdatedAnalyze.mockResolvedValue(ok(packages));
 
       const report = await analyze(makeOptions());
 
@@ -140,8 +175,6 @@ describe('analyze()', () => {
     });
 
     it('has no errors in the errors array on a clean run', async () => {
-      mockAnalyzeOutdated.mockResolvedValue([]);
-
       const report = await analyze(makeOptions());
 
       expect(report.errors).toEqual([]);
@@ -155,7 +188,7 @@ describe('analyze()', () => {
   describe('error isolation', () => {
     it('captures outdated analyzer failure in errors[] and returns empty outdated array', async () => {
       const message = faker.lorem.sentence();
-      mockAnalyzeOutdated.mockRejectedValue(new Error(message));
+      mocks.outdatedAnalyze.mockResolvedValue(fail('outdated', message));
 
       const report = await analyze(makeOptions());
 
@@ -167,24 +200,14 @@ describe('analyze()', () => {
       });
     });
 
-    it('captures a non-Error rejection from the outdated analyzer', async () => {
-      mockAnalyzeOutdated.mockRejectedValue('plain string rejection');
-
-      const report = await analyze(makeOptions());
-
-      expect(report.errors).toHaveLength(1);
-      expect(report.errors[0].analyzer).toBe('outdated');
-      expect(typeof report.errors[0].message).toBe('string');
-    });
-
-    it('does not throw even when the outdated analyzer rejects', async () => {
-      mockAnalyzeOutdated.mockRejectedValue(new Error('boom'));
+    it('does not throw even when the outdated analyzer returns an error', async () => {
+      mocks.outdatedAnalyze.mockResolvedValue(fail('outdated', 'boom'));
 
       await expect(analyze(makeOptions())).resolves.toBeDefined();
     });
 
     it('still produces a score when the outdated analyzer fails', async () => {
-      mockAnalyzeOutdated.mockRejectedValue(new Error('registry down'));
+      mocks.outdatedAnalyze.mockResolvedValue(fail('outdated', 'registry down'));
 
       const report = await analyze(makeOptions());
 
@@ -193,7 +216,7 @@ describe('analyze()', () => {
     });
 
     it('still returns valid bundleSize fallback when outdated analyzer fails', async () => {
-      mockAnalyzeOutdated.mockRejectedValue(new Error('fail'));
+      mocks.outdatedAnalyze.mockResolvedValue(fail('outdated', 'fail'));
 
       const report = await analyze(makeOptions());
 
@@ -201,7 +224,7 @@ describe('analyze()', () => {
     });
 
     it('still returns valid licenses fallback when outdated analyzer fails', async () => {
-      mockAnalyzeOutdated.mockRejectedValue(new Error('fail'));
+      mocks.outdatedAnalyze.mockResolvedValue(fail('outdated', 'fail'));
 
       const report = await analyze(makeOptions());
 
@@ -209,11 +232,27 @@ describe('analyze()', () => {
     });
 
     it('still returns valid unused fallback when outdated analyzer fails', async () => {
-      mockAnalyzeOutdated.mockRejectedValue(new Error('fail'));
+      mocks.outdatedAnalyze.mockResolvedValue(fail('outdated', 'fail'));
 
       const report = await analyze(makeOptions());
 
       expect(report.unused).toMatchObject({ unused: [], missingFromPackageJson: [] });
+    });
+
+    it('captures errors from all analyzers when all fail', async () => {
+      mocks.outdatedAnalyze.mockResolvedValue(fail('outdated', 'err1'));
+      mocks.bundleSizeAnalyze.mockResolvedValue(fail('bundleSize', 'err2'));
+      mocks.licenseAnalyze.mockResolvedValue(fail('licenses', 'err3'));
+      mocks.unusedAnalyze.mockResolvedValue(fail('unused', 'err4'));
+
+      const report = await analyze(makeOptions());
+
+      expect(report.errors).toHaveLength(4);
+      const analyzers = report.errors.map((e) => e.analyzer);
+      expect(analyzers).toContain('outdated');
+      expect(analyzers).toContain('bundleSize');
+      expect(analyzers).toContain('licenses');
+      expect(analyzers).toContain('unused');
     });
   });
 
@@ -223,28 +262,21 @@ describe('analyze()', () => {
 
   describe('health score', () => {
     it('score is a finite number', async () => {
-      mockAnalyzeOutdated.mockResolvedValue([]);
-
       const report = await analyze(makeOptions());
 
       expect(Number.isFinite(report.score)).toBe(true);
     });
 
     it('score is within the 0–100 range', async () => {
-      mockAnalyzeOutdated.mockResolvedValue([]);
-
       const report = await analyze(makeOptions());
 
       expect(report.score).toBeGreaterThanOrEqual(0);
       expect(report.score).toBeLessThanOrEqual(100);
     });
 
-    it('score is 100 when no issues are found (all stubs return empty results)', async () => {
-      mockAnalyzeOutdated.mockResolvedValue([]);
-
+    it('score is 100 when no issues are found (all analyzers return empty results)', async () => {
       const report = await analyze(makeOptions());
 
-      // The current calculateScore stub returns 100 for any clean report.
       expect(report.score).toBe(100);
     });
   });
@@ -254,24 +286,20 @@ describe('analyze()', () => {
   // -------------------------------------------------------------------------
 
   describe('options forwarding', () => {
-    it('calls the outdated analyzer with the provided options object', async () => {
+    it('calls the outdated analyzer analyze method with options', async () => {
       const options = makeOptions();
-      mockAnalyzeOutdated.mockResolvedValue([]);
 
       await analyze(options);
 
-      expect(mockAnalyzeOutdated).toHaveBeenCalledWith(
-        expect.any(Object) as Record<string, string>,
+      expect(mocks.outdatedAnalyze).toHaveBeenCalledWith(
         expect.objectContaining({ projectPath: options.projectPath }) as AnalyzerOptions,
       );
     });
 
     it('calls the outdated analyzer exactly once per analyze() invocation', async () => {
-      mockAnalyzeOutdated.mockResolvedValue([]);
-
       await analyze(makeOptions());
 
-      expect(mockAnalyzeOutdated).toHaveBeenCalledTimes(1);
+      expect(mocks.outdatedAnalyze).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -281,7 +309,7 @@ describe('analyze()', () => {
 
   describe('malformed data from outdated analyzer', () => {
     it('handles an empty array gracefully', async () => {
-      mockAnalyzeOutdated.mockResolvedValue([]);
+      mocks.outdatedAnalyze.mockResolvedValue(ok([]));
 
       const report = await analyze(makeOptions());
 
@@ -291,7 +319,7 @@ describe('analyze()', () => {
 
     it('preserves all fields of OutdatedPackage items returned by the analyzer', async () => {
       const pkg = makeOutdatedPackage({ abandoned: true, type: VersionBump.MAJOR });
-      mockAnalyzeOutdated.mockResolvedValue([pkg]);
+      mocks.outdatedAnalyze.mockResolvedValue(ok([pkg]));
 
       const report = await analyze(makeOptions());
 
@@ -301,7 +329,7 @@ describe('analyze()', () => {
     it('does not mutate the array returned by the analyzer', async () => {
       const packages = [makeOutdatedPackage(), makeOutdatedPackage()];
       const originalLength = packages.length;
-      mockAnalyzeOutdated.mockResolvedValue(packages);
+      mocks.outdatedAnalyze.mockResolvedValue(ok(packages));
 
       const report = await analyze(makeOptions());
 
