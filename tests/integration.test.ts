@@ -18,7 +18,14 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { resolve } from 'node:path';
-import type { OutdatedPackage, UnusedReport, AnalyzerOptions, AnalyzerError } from '../src/types';
+import type {
+  OutdatedPackage,
+  UnusedReport,
+  AnalyzerOptions,
+  AnalyzerError,
+  AIOptions,
+  OutdatedInsight,
+} from '../src/types';
 import { VersionBump } from '../src/types';
 
 // ---------------------------------------------------------------------------
@@ -31,6 +38,7 @@ const mocks = vi.hoisted(() => ({
   unusedAnalyze: vi.fn(),
   bundleSizeAnalyze: vi.fn(),
   licensesAnalyze: vi.fn(),
+  createProvider: vi.fn(),
 }));
 
 vi.mock('../src/analyzers/outdated/index', () => {
@@ -61,6 +69,19 @@ vi.mock('../src/utils/parser', () => ({
   readPackageJson: vi.fn(),
 }));
 
+vi.mock('../src/ai/providers/index', () => ({
+  createProvider: mocks.createProvider,
+}));
+
+vi.mock('../src/ai/service', () => {
+  function AIInsightsService() { /* noop */ }
+  AIInsightsService.prototype.analyzeOutdated = vi.fn();
+  AIInsightsService.prototype.analyzeBundleSize = vi.fn();
+  AIInsightsService.prototype.analyzeLicenses = vi.fn();
+  AIInsightsService.prototype.analyzeUnused = vi.fn();
+  return { AIInsightsService };
+});
+
 import { readPackageJson } from '../src/utils/parser';
 import { analyze } from '../src/index';
 import { formatTerminal } from '../src/reporters/terminal';
@@ -71,6 +92,10 @@ const mockReadPackageJson = vi.mocked(readPackageJson);
 /** Wrap a value in the {result, error} envelope that analyzer.analyze() returns. */
 function ok<T>(value: T): { result: T; error: null } {
   return { result: value, error: null };
+}
+
+function okWithInsight<T, I>(value: T, aiInsights: I): { result: T; aiInsights: I; error: null } {
+  return { result: value, aiInsights, error: null };
 }
 
 function fail(analyzer: string, message: string): { result: null; error: AnalyzerError } {
@@ -124,12 +149,14 @@ beforeEach(() => {
   mocks.unusedAnalyze.mockReset();
   mocks.bundleSizeAnalyze.mockReset();
   mocks.licensesAnalyze.mockReset();
+  mocks.createProvider.mockReset();
   mockReadPackageJson.mockReset();
 
   mocks.outdatedAnalyze.mockResolvedValue(ok(outdatedPackages));
   mocks.unusedAnalyze.mockResolvedValue(ok(unusedReport));
   mocks.bundleSizeAnalyze.mockResolvedValue(ok({ packages: [], totalGzip: 0 }));
   mocks.licensesAnalyze.mockResolvedValue(ok({ packages: [], conflicts: [] }));
+  mocks.createProvider.mockReturnValue({});
   mockReadPackageJson.mockResolvedValue({
     deps: { express: '^4.18.0', lodash: '^4.17.21', chalk: '^4.1.2' },
     devDeps: { typescript: '^5.0.0', vitest: '^1.0.0' },
@@ -329,5 +356,68 @@ describe('integration: markdown reporter', () => {
 
     expect(report.errors).toHaveLength(1);
     expect(report.errors[0]).toMatchObject({ analyzer: 'outdated', message: 'registry down' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Flow 3 — AI insights pipeline
+// ---------------------------------------------------------------------------
+
+describe('integration: AI insights pipeline', () => {
+  const aiOptions: AIOptions = { provider: 'grok', apiKey: 'test-key', model: 'grok-4-1-fast' };
+
+  const outdatedInsight: OutdatedInsight = {
+    summary: 'Express has a major update available.',
+    priorityPackage: 'express',
+    upgradeAdvice: 'Upgrade express to v5 — there are breaking changes in middleware.',
+  };
+
+  it('assembles aiInsights from analyzer results when AI options are provided', async () => {
+    mocks.outdatedAnalyze.mockResolvedValue(
+      okWithInsight(outdatedPackages, outdatedInsight),
+    );
+
+    const report = await analyze(options, aiOptions);
+
+    expect(report.aiInsights).toBeDefined();
+    expect(report.aiInsights?.outdated).toEqual(outdatedInsight);
+  });
+
+  it('terminal reporter renders AI Insights section when aiInsights is present', async () => {
+    mocks.outdatedAnalyze.mockResolvedValue(
+      okWithInsight(outdatedPackages, outdatedInsight),
+    );
+
+    const report = await analyze(options, aiOptions);
+    const output = formatTerminal(report);
+
+    expect(output).toContain('AI Insights');
+    expect(output).toContain(outdatedInsight.summary);
+  });
+
+  it('markdown reporter renders AI Insights section when aiInsights is present', async () => {
+    mocks.outdatedAnalyze.mockResolvedValue(
+      okWithInsight(outdatedPackages, outdatedInsight),
+    );
+
+    const report = await analyze(options, aiOptions);
+    const output = formatMarkdown(report);
+
+    expect(output).toContain('### AI Insights');
+    expect(output).toContain(outdatedInsight.priorityPackage);
+  });
+
+  it('does not include AI Insights section when aiInsights is absent', async () => {
+    const report = await analyze(options);
+    const terminalOutput = formatTerminal(report);
+    const markdownOutput = formatMarkdown(report);
+
+    expect(terminalOutput).not.toContain('AI Insights');
+    expect(markdownOutput).not.toContain('### AI Insights');
+  });
+
+  it('report does not include aiInsights key when no AI options are provided', async () => {
+    const report = await analyze(options);
+    expect(report.aiInsights).toBeUndefined();
   });
 });

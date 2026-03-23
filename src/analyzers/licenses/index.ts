@@ -1,13 +1,20 @@
-import {readFile} from 'node:fs/promises';
-import {join} from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import {
-    type Analyzer, type AnalyzerError, type AnalyzerOptions, type DependencyMap, type LicenseEntry, type LicenseReport,
+    type Analyzer,
+    type AnalyzerError,
+    type AnalyzerOptions,
+    type DependencyMap,
+    type LicenseEntry,
+    type LicenseReport,
+    type LicenseInsight,
 } from '../../types.ts';
-import {isCopyleft, isPermissive, isRawPackageJson} from './utils';
+import { isCopyleft, isPermissive, isRawPackageJson } from './utils';
+import type { AIInsightsService } from '../../ai/service.js';
 
 async function readDepLicense(projectPath: string, pkgName: string): Promise<{
     version: string;
-    license: string
+    license: string;
 } | null> {
     const pkgJsonPath = join(projectPath, 'node_modules', pkgName, 'package.json');
 
@@ -36,17 +43,20 @@ async function readDepLicense(projectPath: string, pkgName: string): Promise<{
     };
 }
 
-export class LicenseAnalyzer implements Analyzer<LicenseReport> {
-    title = 'licenses';
-    deps: DependencyMap;
+export class LicenseAnalyzer implements Analyzer<LicenseReport, LicenseInsight> {
+    readonly title = 'licenses';
+    private readonly deps: DependencyMap;
+    private readonly aiService?: AIInsightsService;
 
-    constructor(deps: DependencyMap) {
+    constructor(deps: DependencyMap, aiService?: AIInsightsService) {
         this.deps = deps;
+        this.aiService = aiService;
     }
 
     async analyze(options: AnalyzerOptions): Promise<{
         result: LicenseReport | null;
-        error: AnalyzerError | null
+        aiInsights?: LicenseInsight;
+        error: AnalyzerError | null;
     }> {
         const depNames = Object.keys(this.deps);
 
@@ -93,12 +103,15 @@ export class LicenseAnalyzer implements Analyzer<LicenseReport> {
             }));
 
             const conflicts = packages.filter((p) => p.conflict);
+            const licenseReport: LicenseReport = { packages, conflicts };
+
+            const aiInsights = this.aiService
+                ? await this.aiService.analyzeLicenses(licenseReport)
+                : undefined;
 
             return {
-                result: {
-                    packages,
-                    conflicts,
-                },
+                result: licenseReport,
+                aiInsights,
                 error: null,
             };
         } catch (err: unknown) {

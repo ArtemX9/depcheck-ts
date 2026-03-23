@@ -1,6 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { faker } from '@faker-js/faker';
-import type { OutdatedPackage, AnalyzerOptions, AnalyzerError } from '../src/types';
+import type {
+  OutdatedPackage,
+  AnalyzerOptions,
+  AnalyzerError,
+  AIOptions,
+  OutdatedInsight,
+  BundleSizeInsight,
+  LicenseInsight,
+  UnusedInsight,
+} from '../src/types';
 import { VersionBump } from '../src/types';
 
 // ---------------------------------------------------------------------------
@@ -13,6 +22,11 @@ const mocks = vi.hoisted(() => ({
   bundleSizeAnalyze: vi.fn(),
   licenseAnalyze: vi.fn(),
   unusedAnalyze: vi.fn(),
+  createProvider: vi.fn(),
+  aiServiceAnalyzeOutdated: vi.fn(),
+  aiServiceAnalyzeBundleSize: vi.fn(),
+  aiServiceAnalyzeLicenses: vi.fn(),
+  aiServiceAnalyzeUnused: vi.fn(),
 }));
 
 vi.mock('../src/analyzers/outdated/index', () => {
@@ -43,6 +57,19 @@ vi.mock('../src/utils/parser', () => ({
   readPackageJson: vi.fn(),
 }));
 
+vi.mock('../src/ai/providers/index', () => ({
+  createProvider: mocks.createProvider,
+}));
+
+vi.mock('../src/ai/service', () => {
+  function AIInsightsService() { /* noop */ }
+  AIInsightsService.prototype.analyzeOutdated = mocks.aiServiceAnalyzeOutdated;
+  AIInsightsService.prototype.analyzeBundleSize = mocks.aiServiceAnalyzeBundleSize;
+  AIInsightsService.prototype.analyzeLicenses = mocks.aiServiceAnalyzeLicenses;
+  AIInsightsService.prototype.analyzeUnused = mocks.aiServiceAnalyzeUnused;
+  return { AIInsightsService };
+});
+
 import { readPackageJson } from '../src/utils/parser';
 import { analyze } from '../src/index';
 
@@ -67,9 +94,52 @@ function makeOutdatedPackage(override?: Partial<OutdatedPackage>): OutdatedPacka
   };
 }
 
+function makeAIOptions(): AIOptions {
+  return { provider: 'grok', apiKey: faker.string.alphanumeric(32), model: 'grok-4-1-fast' };
+}
+
+function makeOutdatedInsight(override?: Partial<OutdatedInsight>): OutdatedInsight {
+  return {
+    summary: faker.lorem.sentence(),
+    priorityPackage: faker.internet.domainWord(),
+    upgradeAdvice: faker.lorem.sentence(),
+    ...override,
+  };
+}
+
+function makeBundleSizeInsight(override?: Partial<BundleSizeInsight>): BundleSizeInsight {
+  return {
+    summary: faker.lorem.sentence(),
+    topOffender: faker.internet.domainWord(),
+    recommendation: faker.lorem.sentence(),
+    ...override,
+  };
+}
+
+function makeLicenseInsight(override?: Partial<LicenseInsight>): LicenseInsight {
+  return {
+    summary: faker.lorem.sentence(),
+    riskLevel: 'low',
+    advice: faker.lorem.sentence(),
+    ...override,
+  };
+}
+
+function makeUnusedInsight(override?: Partial<UnusedInsight>): UnusedInsight {
+  return {
+    summary: faker.lorem.sentence(),
+    cleanupAdvice: faker.lorem.sentence(),
+    ...override,
+  };
+}
+
 /** Wrap a value in the {result, error} envelope that analyzer.analyze() returns. */
-function ok<T>(value: T): { result: T; error: null } {
+function ok<T>(value: T): { result: T; aiInsights?: never; error: null } {
   return { result: value, error: null };
+}
+
+function okWithInsight<T, I>(value: T, aiInsights: I): { result: T; aiInsights: I; error: null } {
+  return { result: value, aiInsights, error: null };
 }
 
 function fail(analyzer: string, message: string): { result: null; error: AnalyzerError } {
@@ -85,6 +155,11 @@ beforeEach(() => {
   mocks.bundleSizeAnalyze.mockReset();
   mocks.licenseAnalyze.mockReset();
   mocks.unusedAnalyze.mockReset();
+  mocks.createProvider.mockReset();
+  mocks.aiServiceAnalyzeOutdated.mockReset();
+  mocks.aiServiceAnalyzeBundleSize.mockReset();
+  mocks.aiServiceAnalyzeLicenses.mockReset();
+  mocks.aiServiceAnalyzeUnused.mockReset();
   mockReadPackageJson.mockReset();
 
   // Default: empty deps, all analyzers return clean empty results.
@@ -93,6 +168,7 @@ beforeEach(() => {
   mocks.bundleSizeAnalyze.mockResolvedValue(ok({ packages: [], totalGzip: 0 }));
   mocks.licenseAnalyze.mockResolvedValue(ok({ packages: [], conflicts: [] }));
   mocks.unusedAnalyze.mockResolvedValue(ok({ unused: [], missingFromPackageJson: [] }));
+  mocks.createProvider.mockReturnValue({});
 });
 
 // ---------------------------------------------------------------------------
@@ -137,6 +213,11 @@ describe('analyze()', () => {
       const report = await analyze(makeOptions());
 
       expect(Array.isArray(report.errors)).toBe(true);
+    });
+
+    it('does not include aiInsights when aiOptions is not provided', async () => {
+      const report = await analyze(makeOptions());
+      expect(report.aiInsights).toBeUndefined();
     });
   });
 
@@ -334,6 +415,72 @@ describe('analyze()', () => {
       const report = await analyze(makeOptions());
 
       expect(report.outdated).toHaveLength(originalLength);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // AI insights
+  // -------------------------------------------------------------------------
+
+  describe('AI insights', () => {
+    it('calls createProvider when aiOptions is provided', async () => {
+      const aiOptions = makeAIOptions();
+
+      await analyze(makeOptions(), aiOptions);
+
+      expect(mocks.createProvider).toHaveBeenCalledWith(aiOptions);
+    });
+
+    it('does not call createProvider when aiOptions is not provided', async () => {
+      await analyze(makeOptions());
+
+      expect(mocks.createProvider).not.toHaveBeenCalled();
+    });
+
+    it('assembles aiInsights from per-analyzer results when all return insights', async () => {
+      const outdatedInsight = makeOutdatedInsight();
+      const bundleSizeInsight = makeBundleSizeInsight();
+      const licenseInsight = makeLicenseInsight();
+      const unusedInsight = makeUnusedInsight();
+
+      mocks.outdatedAnalyze.mockResolvedValue(okWithInsight([], outdatedInsight));
+      mocks.bundleSizeAnalyze.mockResolvedValue(
+        okWithInsight({ packages: [], totalGzip: 0 }, bundleSizeInsight),
+      );
+      mocks.licenseAnalyze.mockResolvedValue(
+        okWithInsight({ packages: [], conflicts: [] }, licenseInsight),
+      );
+      mocks.unusedAnalyze.mockResolvedValue(
+        okWithInsight({ unused: [], missingFromPackageJson: [] }, unusedInsight),
+      );
+
+      const report = await analyze(makeOptions(), makeAIOptions());
+
+      expect(report.aiInsights).toBeDefined();
+      expect(report.aiInsights?.outdated).toEqual(outdatedInsight);
+      expect(report.aiInsights?.bundleSize).toEqual(bundleSizeInsight);
+      expect(report.aiInsights?.licenses).toEqual(licenseInsight);
+      expect(report.aiInsights?.unused).toEqual(unusedInsight);
+    });
+
+    it('does not include aiInsights in report when no insights are returned by analyzers', async () => {
+      // All analyzers return results without aiInsights
+      mocks.outdatedAnalyze.mockResolvedValue(ok([]));
+
+      const report = await analyze(makeOptions(), makeAIOptions());
+
+      expect(report.aiInsights).toBeUndefined();
+    });
+
+    it('includes partial aiInsights when only some analyzers return insights', async () => {
+      const outdatedInsight = makeOutdatedInsight();
+      mocks.outdatedAnalyze.mockResolvedValue(okWithInsight([], outdatedInsight));
+
+      const report = await analyze(makeOptions(), makeAIOptions());
+
+      expect(report.aiInsights).toBeDefined();
+      expect(report.aiInsights?.outdated).toEqual(outdatedInsight);
+      expect(report.aiInsights?.bundleSize).toBeUndefined();
     });
   });
 });

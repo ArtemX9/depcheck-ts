@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import Table from 'cli-table3';
 import type {
+  AIInsights,
   FullReport,
   OutdatedPackage,
   BundleSizeEntry,
@@ -150,6 +151,45 @@ function renderErrors(errors: AnalyzerError[]): string {
   return lines.join('\n');
 }
 
+function renderAIInsights(insights: AIInsights): string {
+  const lines: string[] = [chalk.bold('\n AI Insights\n')];
+
+  if (insights.outdated) {
+    lines.push(chalk.underline('Outdated'));
+    lines.push(`  ${insights.outdated.summary}`);
+    lines.push(`  Priority: ${chalk.yellow(insights.outdated.priorityPackage)}`);
+    lines.push(`  ${insights.outdated.upgradeAdvice}\n`);
+  }
+
+  if (insights.bundleSize) {
+    lines.push(chalk.underline('Bundle Size'));
+    lines.push(`  ${insights.bundleSize.summary}`);
+    lines.push(`  Top offender: ${chalk.yellow(insights.bundleSize.topOffender)}`);
+    lines.push(`  ${insights.bundleSize.recommendation}\n`);
+  }
+
+  if (insights.licenses) {
+    const riskColor =
+      insights.licenses.riskLevel === 'high'
+        ? chalk.red
+        : insights.licenses.riskLevel === 'medium'
+          ? chalk.yellow
+          : chalk.green;
+    lines.push(chalk.underline('Licenses'));
+    lines.push(`  ${insights.licenses.summary}`);
+    lines.push(`  Risk level: ${riskColor(insights.licenses.riskLevel)}`);
+    lines.push(`  ${insights.licenses.advice}\n`);
+  }
+
+  if (insights.unused) {
+    lines.push(chalk.underline('Unused Dependencies'));
+    lines.push(`  ${insights.unused.summary}`);
+    lines.push(`  ${insights.unused.cleanupAdvice}\n`);
+  }
+
+  return lines.join('\n');
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -185,6 +225,10 @@ export function formatTerminal(report: FullReport): string {
 
   if (!hasIssues) {
     parts.push(`\n${chalk.green.bold('All checks passed.')} Your dependencies look healthy.`);
+  }
+
+  if (report.aiInsights) {
+    parts.push(renderAIInsights(report.aiInsights));
   }
 
   return parts.join('\n') + '\n';

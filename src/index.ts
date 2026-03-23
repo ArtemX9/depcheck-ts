@@ -1,12 +1,21 @@
-import type {AnalyzerError, AnalyzerOptions, DependencyMap, FullReport} from './types';
-import {VersionBump} from './types';
-import {OutdatedAnalyzer} from './analyzers/outdated/index';
-import {UnusedAnalyzer} from './analyzers/unused/index';
-import {LicenseAnalyzer} from './analyzers/licenses/index';
-import {BundleSizeAnalyzer} from './analyzers/bundleSize/index';
-import {readPackageJson} from './utils/parser.ts';
+import type {
+    AIInsights,
+    AIOptions,
+    AnalyzerError,
+    AnalyzerOptions,
+    DependencyMap,
+    FullReport,
+} from './types';
+import { VersionBump } from './types';
+import { OutdatedAnalyzer } from './analyzers/outdated/index';
+import { UnusedAnalyzer } from './analyzers/unused/index';
+import { LicenseAnalyzer } from './analyzers/licenses/index';
+import { BundleSizeAnalyzer } from './analyzers/bundleSize/index';
+import { readPackageJson } from './utils/parser.ts';
+import { AIInsightsService } from './ai/service.js';
+import { createProvider } from './ai/providers/index.js';
 
-function calculateScore(report: Omit<FullReport, 'score' | 'errors'>): number {
+function calculateScore(report: Omit<FullReport, 'score' | 'errors' | 'aiInsights'>): number {
     let penalty = 0;
 
     for (const pkg of report.outdated) {
@@ -35,23 +44,31 @@ function calculateScore(report: Omit<FullReport, 'score' | 'errors'>): number {
     return Math.max(0, 100 - penalty);
 }
 
-export async function analyze(options: AnalyzerOptions): Promise<FullReport> {
+export async function analyze(options: AnalyzerOptions, aiOptions?: AIOptions): Promise<FullReport> {
     const {
         deps,
         devDeps,
     } = await readPackageJson(options.projectPath);
-    const allDeps: DependencyMap = {...deps, ...devDeps};
+    const allDeps: DependencyMap = { ...deps, ...devDeps };
 
     const errors: AnalyzerError[] = [];
-    const unusedAnalyzer = new UnusedAnalyzer(allDeps);
-    const licenseAnalyzer = new LicenseAnalyzer(allDeps);
-    const bundleSizeAnalyzer = new BundleSizeAnalyzer(deps);
-    const outdatedAnalyzer = new OutdatedAnalyzer(allDeps);
+
+    const aiService = aiOptions ? new AIInsightsService(createProvider(aiOptions)) : undefined;
+
+    const unusedAnalyzer = new UnusedAnalyzer(allDeps, aiService);
+    const licenseAnalyzer = new LicenseAnalyzer(allDeps, aiService);
+    const bundleSizeAnalyzer = new BundleSizeAnalyzer(deps, aiService);
+    const outdatedAnalyzer = new OutdatedAnalyzer(allDeps, aiService);
 
     // Build inline Analyzer<T> adapters wrapping each standalone function.
     // Using the functions directly (not the class constructors) ensures that
     // vi.mock() overrides of the standalone exports are respected in tests.
-    const [outdatedRun, bundleSizeRun, licensesRun, unusedRun] = await Promise.all([outdatedAnalyzer.analyze(options), bundleSizeAnalyzer.analyze(options), licenseAnalyzer.analyze(options), unusedAnalyzer.analyze(options)]);
+    const [outdatedRun, bundleSizeRun, licensesRun, unusedRun] = await Promise.all([
+        outdatedAnalyzer.analyze(options),
+        bundleSizeAnalyzer.analyze(options),
+        licenseAnalyzer.analyze(options),
+        unusedAnalyzer.analyze(options),
+    ]);
 
     if (outdatedRun.error !== null) errors.push(outdatedRun.error);
     if (bundleSizeRun.error !== null) errors.push(bundleSizeRun.error);
@@ -80,9 +97,25 @@ export async function analyze(options: AnalyzerOptions): Promise<FullReport> {
     };
     const score = calculateScore(partial);
 
+    const hasAiInsights =
+        outdatedRun.aiInsights !== undefined ||
+        bundleSizeRun.aiInsights !== undefined ||
+        licensesRun.aiInsights !== undefined ||
+        unusedRun.aiInsights !== undefined;
+
+    const aiInsights: AIInsights | undefined = hasAiInsights
+        ? {
+            outdated: outdatedRun.aiInsights,
+            bundleSize: bundleSizeRun.aiInsights,
+            licenses: licensesRun.aiInsights,
+            unused: unusedRun.aiInsights,
+        }
+        : undefined;
+
     return {
         ...partial,
         score,
         errors,
+        ...(aiInsights !== undefined ? { aiInsights } : {}),
     };
 }

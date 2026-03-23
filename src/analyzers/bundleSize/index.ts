@@ -4,18 +4,21 @@ import type {
     AnalyzerOptions,
     BundleSizeEntry,
     BundleSizeReport,
+    BundleSizeInsight,
     DependencyMap,
 } from '../../types.ts';
-import {fetchBundleSize} from '../../utils/bundlephobia.ts';
-import {ALTERNATIVES, HEAVY_THRESHOLD_BYTES} from './constants';
+import { fetchBundleSize } from '../../utils/bundlephobia.ts';
+import { ALTERNATIVES, HEAVY_THRESHOLD_BYTES } from './constants';
+import type { AIInsightsService } from '../../ai/service.js';
 
-export class BundleSizeAnalyzer implements Analyzer<BundleSizeReport> {
-    title = 'bundleSize';
-    deps: DependencyMap;
+export class BundleSizeAnalyzer implements Analyzer<BundleSizeReport, BundleSizeInsight> {
+    readonly title = 'bundleSize';
+    private readonly deps: DependencyMap;
+    private readonly aiService?: AIInsightsService;
 
-    constructor(deps: DependencyMap) {
+    constructor(deps: DependencyMap, aiService?: AIInsightsService) {
         this.deps = deps;
-        return this;
+        this.aiService = aiService;
     }
 
     /**
@@ -27,7 +30,8 @@ export class BundleSizeAnalyzer implements Analyzer<BundleSizeReport> {
      */
     async analyze(_options: AnalyzerOptions): Promise<{
         result: BundleSizeReport | null;
-        error: AnalyzerError | null
+        aiInsights?: BundleSizeInsight;
+        error: AnalyzerError | null;
     }> {
         const depNames = Object.keys(this.deps);
 
@@ -44,7 +48,7 @@ export class BundleSizeAnalyzer implements Analyzer<BundleSizeReport> {
         const packages: BundleSizeEntry[] = [];
         const errors: Array<{
             name: string;
-            message: string
+            message: string;
         }> = [];
         try {
             await Promise.all(depNames.map(async (name) => {
@@ -63,7 +67,7 @@ export class BundleSizeAnalyzer implements Analyzer<BundleSizeReport> {
                         version: result.version,
                         gzip: result.gzip,
                         size: result.size,
-                        heavy, ...(alternative !== undefined ? {alternative} : {}),
+                        heavy, ...(alternative !== undefined ? { alternative } : {}),
                     });
                 } catch (err: unknown) {
                     errors.push({
@@ -74,16 +78,21 @@ export class BundleSizeAnalyzer implements Analyzer<BundleSizeReport> {
             }));
 
             const totalGzip = packages.reduce((sum, p) => sum + p.gzip, 0);
+            const bundleSizeReport: BundleSizeReport = { packages, totalGzip };
+
+            const aiInsights = this.aiService
+                ? await this.aiService.analyzeBundleSize(bundleSizeReport)
+                : undefined;
 
             return {
-                result: {
-                    packages,
-                    totalGzip,
-                },
-                error: {
-                    analyzer: this.title,
-                    message: errors.map(e => `${e.name}: ${e.message};`).join('\n')
-                },
+                result: bundleSizeReport,
+                aiInsights,
+                error: errors.length > 0
+                    ? {
+                        analyzer: this.title,
+                        message: errors.map((e) => `${e.name}: ${e.message};`).join('\n'),
+                    }
+                    : null,
             };
         } catch (err: unknown) {
             return {

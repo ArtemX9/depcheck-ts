@@ -1,16 +1,24 @@
-import {readdir, readFile} from 'node:fs/promises';
-import {extname, join} from 'node:path';
-import type {Analyzer, AnalyzerError, AnalyzerOptions, DependencyMap, UnusedReport} from '../../types';
-import {extractPackageName} from '../../utils/packageName';
-import {extractImportsFromSource, isImplicitlyUsed} from './utils';
-import {NODE_BUILTINS, SKIP_DIRS, SOURCE_EXTENSIONS} from './constants';
+import { readdir, readFile } from 'node:fs/promises';
+import { extname, join } from 'node:path';
+import type {
+    Analyzer,
+    AnalyzerError,
+    AnalyzerOptions,
+    DependencyMap,
+    UnusedReport,
+    UnusedInsight,
+} from '../../types';
+import { extractPackageName } from '../../utils/packageName';
+import { extractImportsFromSource, isImplicitlyUsed } from './utils';
+import { NODE_BUILTINS, SKIP_DIRS, SOURCE_EXTENSIONS } from './constants';
+import type { AIInsightsService } from '../../ai/service.js';
 
 async function collectSourceFiles(dir: string): Promise<string[]> {
     const results: string[] = [];
 
     let entries;
     try {
-        entries = await readdir(dir, {withFileTypes: true});
+        entries = await readdir(dir, { withFileTypes: true });
     } catch {
         return [];
     }
@@ -107,18 +115,20 @@ async function extractAllImports(files: string[], pathAliases: Set<string>): Pro
     return packageNames;
 }
 
-export class UnusedAnalyzer implements Analyzer<UnusedReport> {
-    title = 'unused';
-    deps: DependencyMap;
+export class UnusedAnalyzer implements Analyzer<UnusedReport, UnusedInsight> {
+    readonly title = 'unused';
+    private readonly deps: DependencyMap;
+    private readonly aiService?: AIInsightsService;
 
-    constructor(deps: DependencyMap) {
+    constructor(deps: DependencyMap, aiService?: AIInsightsService) {
         this.deps = deps;
-        return this;
+        this.aiService = aiService;
     }
 
     async analyze(options: AnalyzerOptions): Promise<{
         result: UnusedReport | null;
-        error: AnalyzerError | null
+        aiInsights?: UnusedInsight;
+        error: AnalyzerError | null;
     }> {
         const declaredNames = Object.keys(this.deps);
 
@@ -132,7 +142,10 @@ export class UnusedAnalyzer implements Analyzer<UnusedReport> {
             };
         }
         try {
-            const [files, pathAliases] = await Promise.all([collectSourceFiles(options.projectPath), readPathAliases(options.projectPath)]);
+            const [files, pathAliases] = await Promise.all([
+                collectSourceFiles(options.projectPath),
+                readPathAliases(options.projectPath),
+            ]);
             const usedPackages = await extractAllImports(files, pathAliases);
 
             const unused: string[] = declaredNames
@@ -144,15 +157,20 @@ export class UnusedAnalyzer implements Analyzer<UnusedReport> {
                 .filter((name) => !this.deps[name] && !isImplicitlyUsed(name))
                 .sort();
 
+            const unusedReport: UnusedReport = { unused, missingFromPackageJson };
+
+            const aiInsights = this.aiService
+                ? await this.aiService.analyzeUnused(unusedReport)
+                : undefined;
+
             return {
-                result: {
-                    unused,
-                    missingFromPackageJson,
-                },
+                result: unusedReport,
+                aiInsights,
                 error: null,
             };
         } catch (err: unknown) {
-            return {result: null,
+            return {
+                result: null,
                 error: {
                     analyzer: this.title,
                     message: String(err),
@@ -161,4 +179,3 @@ export class UnusedAnalyzer implements Analyzer<UnusedReport> {
         }
     }
 }
-

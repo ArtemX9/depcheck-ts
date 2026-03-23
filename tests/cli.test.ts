@@ -1,19 +1,26 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { faker } from '@faker-js/faker';
 import type { FullReport } from '../src/types.js';
 
 // ---------------------------------------------------------------------------
-// Mock analyze() before importing the CLI so the module factory runs first.
+// Mock analyze() and loadConfig() before importing the CLI so the module
+// factory runs first.
 // ---------------------------------------------------------------------------
 
 vi.mock('../src/index.js', () => ({
   analyze: vi.fn(),
 }));
 
+vi.mock('../src/utils/config.js', () => ({
+  loadConfig: vi.fn(),
+}));
+
 import { analyze } from '../src/index.js';
+import { loadConfig } from '../src/utils/config.js';
 import { run } from '../src/cli.js';
 
 const mockAnalyze = vi.mocked(analyze);
+const mockLoadConfig = vi.mocked(loadConfig);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -43,9 +50,18 @@ function argv(...extra: string[]): string[] {
 // Setup
 // ---------------------------------------------------------------------------
 
+let stdoutSpy: ReturnType<typeof vi.spyOn>;
+
 beforeEach(() => {
   mockAnalyze.mockReset();
+  mockLoadConfig.mockReset();
   mockAnalyze.mockResolvedValue(makeReport());
+  mockLoadConfig.mockResolvedValue({});
+  stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+});
+
+afterEach(() => {
+  stdoutSpy.mockRestore();
 });
 
 // ---------------------------------------------------------------------------
@@ -59,6 +75,7 @@ describe('CLI – default behavior (no flags)', () => {
     expect(mockAnalyze).toHaveBeenCalledOnce();
     expect(mockAnalyze).toHaveBeenCalledWith(
       expect.objectContaining({ projectPath: process.cwd() }),
+      undefined,
     );
   });
 
@@ -81,6 +98,7 @@ describe('CLI – --path flag', () => {
 
     expect(mockAnalyze).toHaveBeenCalledWith(
       expect.objectContaining({ projectPath }),
+      undefined,
     );
   });
 
@@ -94,10 +112,12 @@ describe('CLI – --path flag', () => {
     expect(mockAnalyze).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({ projectPath: first }),
+      undefined,
     );
     expect(mockAnalyze).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({ projectPath: second }),
+      undefined,
     );
   });
 });
@@ -271,5 +291,176 @@ describe('CLI – error handling', () => {
     mockAnalyze.mockRejectedValue('plain string error');
 
     await expect(run(argv())).rejects.toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Config file merging
+// ---------------------------------------------------------------------------
+
+describe('CLI – config file merging', () => {
+  it('calls loadConfig with cwd when no --path is given', async () => {
+    await run(argv());
+    expect(mockLoadConfig).toHaveBeenCalledWith(process.cwd());
+  });
+
+  it('calls loadConfig with the provided path when --path is given', async () => {
+    const projectPath = faker.system.directoryPath();
+    await run(argv('--path', projectPath));
+    expect(mockLoadConfig).toHaveBeenCalledWith(projectPath);
+  });
+
+  it('uses config.path when no --path CLI flag is provided', async () => {
+    const configPath = faker.system.directoryPath();
+    mockLoadConfig.mockResolvedValue({ path: configPath });
+
+    await run(argv());
+
+    expect(mockAnalyze).toHaveBeenCalledWith(
+      expect.objectContaining({ projectPath: configPath }),
+      undefined,
+    );
+  });
+
+  it('CLI --path overrides config.path', async () => {
+    const cliPath = faker.system.directoryPath();
+    const configPath = faker.system.directoryPath();
+    mockLoadConfig.mockResolvedValue({ path: configPath });
+
+    await run(argv('--path', cliPath));
+
+    expect(mockAnalyze).toHaveBeenCalledWith(
+      expect.objectContaining({ projectPath: cliPath }),
+      undefined,
+    );
+  });
+
+  it('uses config.format when no --format CLI flag is provided', async () => {
+    mockLoadConfig.mockResolvedValue({ format: 'markdown' });
+    const stdoutWrite = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+    await run(argv());
+
+    const written = stdoutWrite.mock.calls[0]?.[0] as string;
+    expect(written).toContain('## Dependency Health Report');
+    stdoutWrite.mockRestore();
+  });
+
+  it('CLI --format overrides config.format', async () => {
+    mockLoadConfig.mockResolvedValue({ format: 'markdown' });
+    const stdoutWrite = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+    await run(argv('--format', 'json'));
+
+    const written = stdoutWrite.mock.calls[0]?.[0] as string;
+    const parsed = JSON.parse(written) as Record<string, unknown>;
+    expect(parsed).toHaveProperty('score');
+    stdoutWrite.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// --ai-provider, --ai-key, --ai-model flags
+// ---------------------------------------------------------------------------
+
+describe('CLI – AI flags', () => {
+  it('passes aiOptions to analyze() when all three AI flags are provided', async () => {
+    const apiKey = faker.string.alphanumeric(32);
+
+    await run(argv('--ai-provider', 'grok', '--ai-key', apiKey, '--ai-model', 'grok-4-1-fast'));
+
+    expect(mockAnalyze).toHaveBeenCalledWith(
+      expect.objectContaining({ projectPath: process.cwd() }),
+      expect.objectContaining({ provider: 'grok', apiKey, model: 'grok-4-1-fast' }),
+    );
+  });
+
+  it('passes undefined aiOptions when AI flags are omitted', async () => {
+    await run(argv());
+
+    expect(mockAnalyze).toHaveBeenCalledWith(
+      expect.objectContaining({ projectPath: process.cwd() }),
+      undefined,
+    );
+  });
+
+  it('passes undefined aiOptions when only some AI flags are provided (missing ai-key)', async () => {
+    await run(argv('--ai-provider', 'grok', '--ai-model', 'grok-4-1-fast'));
+
+    expect(mockAnalyze).toHaveBeenCalledWith(
+      expect.anything(),
+      undefined,
+    );
+  });
+
+  it('calls process.exit(1) when an unknown provider is specified', async () => {
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+    const stderrWrite = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    await run(
+      argv('--ai-provider', 'openai', '--ai-key', 'key', '--ai-model', 'gpt-4'),
+    );
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    exitSpy.mockRestore();
+    stderrWrite.mockRestore();
+  });
+
+  it('writes an error message to stderr for an unknown provider', async () => {
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+    const stderrWrite = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    await run(
+      argv('--ai-provider', 'openai', '--ai-key', 'key', '--ai-model', 'gpt-4'),
+    );
+
+    expect(stderrWrite).toHaveBeenCalledWith(expect.stringContaining('openai') as string);
+    exitSpy.mockRestore();
+    stderrWrite.mockRestore();
+  });
+
+  it('reads AI options from config file when no CLI flags are given', async () => {
+    const apiKey = faker.string.alphanumeric(32);
+    mockLoadConfig.mockResolvedValue({
+      ai: { provider: 'grok', apiKey, model: 'grok-4-1-fast' },
+    });
+
+    await run(argv());
+
+    expect(mockAnalyze).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ provider: 'grok', apiKey, model: 'grok-4-1-fast' }),
+    );
+  });
+
+  it('CLI --ai-key overrides config ai.apiKey', async () => {
+    const cliKey = faker.string.alphanumeric(32);
+    mockLoadConfig.mockResolvedValue({
+      ai: { provider: 'grok', apiKey: 'config-key', model: 'grok-4-1-fast' },
+    });
+
+    await run(argv('--ai-key', cliKey));
+
+    expect(mockAnalyze).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ apiKey: cliKey }),
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Integration: config ci flag
+// ---------------------------------------------------------------------------
+
+describe('CLI – config ci flag', () => {
+  it('respects config.ci = true and exits with 1 on low score', async () => {
+    mockLoadConfig.mockResolvedValue({ ci: true });
+    mockAnalyze.mockResolvedValue(makeReport({ score: 50 }));
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+
+    await run(argv());
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    exitSpy.mockRestore();
   });
 });

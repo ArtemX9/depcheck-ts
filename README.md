@@ -1,5 +1,11 @@
 # depcheck-ts
 
+![Node.js](https://img.shields.io/badge/Node.js_20+-339933?logo=node.js&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
+[![npm](https://img.shields.io/badge/npm-CB3837?logo=npm&logoColor=white)](https://www.npmjs.com/package/depcheck-ts)
+
+![Grok AI](https://img.shields.io/badge/Grok_AI-000000?logo=xai&logoColor=white)
+
 TypeScript CLI tool and npm library that analyzes a project's npm dependencies for outdated packages, bundle size impact, license conflicts, and unused imports.
 
 ## Install
@@ -29,13 +35,36 @@ depcheck-ts --format markdown
 
 # Exit code 1 when issues are found (CI mode)
 depcheck-ts --ci
+
+# AI-powered insights (Grok)
+depcheck-ts --ai-provider grok --ai-key <XAI_API_KEY> --ai-model grok-3-mini-fast
 ```
+
+## Configuration File
+
+Create a `.depcheck-ts` file in your project root (JSON) to avoid repeating flags:
+
+```json
+{
+  "path": "./",
+  "format": "terminal",
+  "ci": false,
+  "ai": {
+    "provider": "grok",
+    "apiKey": "your-xai-api-key",
+    "model": "grok-3-mini-fast"
+  }
+}
+```
+
+CLI flags take precedence over the config file when both are present.
 
 ## Programmatic API
 
 ```typescript
 import { analyze } from 'depcheck-ts';
 
+// Basic usage
 const report = await analyze({ projectPath: './my-project' });
 
 console.log(report.outdated);   // OutdatedPackage[]
@@ -44,7 +73,35 @@ console.log(report.licenses);   // LicenseReport
 console.log(report.unused);     // UnusedReport
 console.log(report.score);      // 0-100 health score
 console.log(report.errors);     // AnalyzerError[] — per-analyzer failures
+
+// With AI insights
+const reportWithAI = await analyze(
+  { projectPath: './my-project' },
+  { provider: 'grok', apiKey: process.env.XAI_API_KEY, model: 'grok-3-mini-fast' }
+);
+
+console.log(reportWithAI.aiInsights?.outdated);   // { summary, priorityPackage, upgradeAdvice }
+console.log(reportWithAI.aiInsights?.bundleSize); // { summary, topOffender, recommendation }
+console.log(reportWithAI.aiInsights?.licenses);   // { summary, riskLevel, advice }
+console.log(reportWithAI.aiInsights?.unused);     // { summary, cleanupAdvice }
 ```
+
+## AI Insights
+
+When an AI provider is configured, each analyzer sends its results to the LLM and appends a structured insight block to the report. The insights are advisory — analyzer failures never suppress them and AI errors never suppress analyzer results.
+
+| Insight field | Shape |
+|---|---|
+| `aiInsights.outdated` | `{ summary, priorityPackage, upgradeAdvice }` |
+| `aiInsights.bundleSize` | `{ summary, topOffender, recommendation }` |
+| `aiInsights.licenses` | `{ summary, riskLevel: 'low'|'medium'|'high', advice }` |
+| `aiInsights.unused` | `{ summary, cleanupAdvice }` |
+
+**Supported providers**
+
+| Provider | Value | Notes |
+|---|---|---|
+| xAI Grok | `grok` | Uses `https://api.x.ai/v1/chat/completions` with structured JSON output |
 
 ## What It Checks
 

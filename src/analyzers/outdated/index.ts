@@ -1,6 +1,14 @@
-import type {Analyzer, AnalyzerError, AnalyzerOptions, DependencyMap, OutdatedPackage} from '../../types';
-import {VersionBump} from '../../types';
-import {fetchPackageInfo} from '../../utils/registry';
+import type {
+  Analyzer,
+  AnalyzerError,
+  AnalyzerOptions,
+  DependencyMap,
+  OutdatedPackage,
+  OutdatedInsight,
+} from '../../types';
+import { VersionBump } from '../../types';
+import { fetchPackageInfo } from '../../utils/registry';
+import type { AIInsightsService } from '../../ai/service.js';
 
 const TWO_YEARS_MS = 2 * 365 * 24 * 60 * 60 * 1000;
 
@@ -22,18 +30,20 @@ function classifyDiff(current: string, latest: string): VersionBump | null {
     return null; // up to date or newer installed
 }
 
-export class OutdatedAnalyzer implements Analyzer<OutdatedPackage[]> {
-    title = 'outdated';
-    deps: DependencyMap;
+export class OutdatedAnalyzer implements Analyzer<OutdatedPackage[], OutdatedInsight> {
+    readonly title = 'outdated';
+    private readonly deps: DependencyMap;
+    private readonly aiService?: AIInsightsService;
 
-    constructor(deps: DependencyMap) {
+    constructor(deps: DependencyMap, aiService?: AIInsightsService) {
         this.deps = deps;
-        return this;
+        this.aiService = aiService;
     }
 
     async analyze(_options: AnalyzerOptions): Promise<{
         result: OutdatedPackage[] | null;
-        error: AnalyzerError | null
+        aiInsights?: OutdatedInsight;
+        error: AnalyzerError | null;
     }> {
         const results: OutdatedPackage[] = [];
         try {
@@ -55,8 +65,13 @@ export class OutdatedAnalyzer implements Analyzer<OutdatedPackage[]> {
                 });
             }));
 
+            const aiInsights = this.aiService
+                ? await this.aiService.analyzeOutdated(results)
+                : undefined;
+
             return {
                 result: results,
+                aiInsights,
                 error: null,
             };
         } catch (err: unknown) {
@@ -70,4 +85,3 @@ export class OutdatedAnalyzer implements Analyzer<OutdatedPackage[]> {
         }
     }
 }
-

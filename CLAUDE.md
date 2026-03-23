@@ -19,6 +19,7 @@ npm run typecheck      # tsc --noEmit
 # Run CLI locally during development
 node build/cli.js --path ../some-project
 node build/cli.js --format json --ci
+node build/cli.js --ai-provider grok --ai-key $XAI_API_KEY --ai-model grok-3-mini-fast
 ```
 
 ## Architecture
@@ -41,6 +42,12 @@ src/
 │       ├── index.ts   # Globs source files, extracts imports via regex, diffs against declared deps.
 │       ├── constants.ts # IMPLICITLY_USED, NODE_BUILTINS, SOURCE_EXTENSIONS, SKIP_DIRS, regexes.
 │       └── utils.ts   # isImplicitlyUsed(), extractImportsFromSource().
+├── ai/
+│   ├── types.ts        # LLMProvider interface — the contract every provider must implement.
+│   ├── service.ts      # AIInsightsService — thin delegation layer; analyzers depend on this, not a provider.
+│   └── providers/
+│       ├── index.ts    # createProvider(options) factory — maps AIProviderName → concrete implementation.
+│       └── grok.ts     # GrokProvider — calls https://api.x.ai/v1/chat/completions with structured JSON output.
 ├── reporters/          # Each reporter takes a FullReport and returns a formatted string.
 │   ├── terminal.ts     # chalk + cli-table3 colored output.
 │   ├── json.ts         # JSON.stringify with structure.
@@ -48,12 +55,15 @@ src/
 ├── utils/
 │   ├── registry.ts     # npm registry HTTP client. GET https://registry.npmjs.org/{pkg}
 │   ├── bundlephobia.ts # bundlephobia HTTP client. GET https://bundlephobia.com/api/size?package={pkg}@{ver}
+│   ├── config.ts       # loadConfig() — reads .depcheck-ts JSON from project root; validates shape.
 │   ├── parser.ts       # Reads package.json + lock files. Resolves actual installed versions.
 │   └── packageName.ts  # Extracts package name from import path (handles scoped @org/pkg).
-└── types.ts            # All shared interfaces: FullReport, OutdatedPackage, BundleSizeEntry, etc.
+└── types.ts            # All shared interfaces: FullReport, OutdatedPackage, BundleSizeEntry, AIOptions, etc.
 ```
 
-Key data flow: `CLI → parse flags → read package.json → Promise.all(analyzers) → merge into FullReport → calculate health score → reporter → stdout`
+Key data flow: `CLI → loadConfig() + parse flags → read package.json → Promise.all(analyzers) → merge into FullReport → calculate health score → reporter → stdout`
+
+AI flow (when `--ai-*` flags or `ai` config block are present): each analyzer receives an `AIInsightsService` instance; after producing its result it calls `service.analyze*()`, which delegates to the provider. Insights are attached to `FullReport.aiInsights` and rendered by each reporter.
 
 ## Conventions
 
@@ -88,10 +98,56 @@ interface FullReport {
   unused: UnusedReport;
   score: number;            // 0-100 health score
   errors: AnalyzerError[];  // any analyzer failures
+  aiInsights?: AIInsights;  // present only when an AI provider is configured
+}
+
+type AIProviderName = 'grok';
+
+interface AIOptions {
+  provider: AIProviderName;
+  apiKey: string;
+  model: string;
+}
+
+interface AIInsights {
+  outdated?: OutdatedInsight;   // { summary, priorityPackage, upgradeAdvice }
+  bundleSize?: BundleSizeInsight; // { summary, topOffender, recommendation }
+  licenses?: LicenseInsight;    // { summary, riskLevel: 'low'|'medium'|'high', advice }
+  unused?: UnusedInsight;       // { summary, cleanupAdvice }
 }
 ```
 
 When adding or modifying analyzer return types, always update `types.ts` first, then fix compiler errors. Types drive the design.
+
+## Config file
+
+`.depcheck-ts` is a JSON file read from the project root (or from the `--path` directory). All fields are optional. CLI flags override config file values.
+
+```json
+{
+  "path": "./",
+  "format": "terminal",
+  "ci": false,
+  "ai": {
+    "provider": "grok",
+    "apiKey": "xai-...",
+    "model": "grok-3-mini-fast"
+  }
+}
+```
+
+Loading is handled by `utils/config.ts → loadConfig(dir)`. If the file is absent, an empty config is returned. If it exists but has an invalid shape, an error is thrown.
+
+## AI providers
+
+The provider system uses a strategy pattern:
+
+- `LLMProvider` (`ai/types.ts`) — interface every provider must implement: `analyzeOutdated`, `analyzeBundleSize`, `analyzeLicenses`, `analyzeUnused`.
+- `AIInsightsService` (`ai/service.ts`) — thin wrapper that analyzers depend on. Keeps analyzers decoupled from the concrete HTTP client.
+- `createProvider(options)` (`ai/providers/index.ts`) — factory that maps `AIProviderName` → implementation.
+- `GrokProvider` (`ai/providers/grok.ts`) — current implementation. Uses structured JSON output (`response_format.type = 'json_schema'`), validates the response shape with a type guard before returning.
+
+To add a new provider: implement `LLMProvider`, add the name to `AIProviderName` in `types.ts`, register it in `createProvider`, and add tests in `tests/ai/providers/`.
 
 ## Important details
 

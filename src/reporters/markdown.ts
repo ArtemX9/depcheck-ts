@@ -1,4 +1,5 @@
 import type {
+  AIInsights,
   FullReport,
   OutdatedPackage,
   BundleSizeEntry,
@@ -174,6 +175,54 @@ function renderErrors(errors: AnalyzerError[]): string {
   return lines.join('\n');
 }
 
+function renderAIInsights(insights: AIInsights): string {
+  const lines: string[] = ['### AI Insights', ''];
+
+  if (insights.outdated) {
+    lines.push('#### Outdated Packages');
+    lines.push('');
+    lines.push(insights.outdated.summary);
+    lines.push('');
+    lines.push(`**Priority package:** \`${insights.outdated.priorityPackage}\``);
+    lines.push('');
+    lines.push(insights.outdated.upgradeAdvice);
+    lines.push('');
+  }
+
+  if (insights.bundleSize) {
+    lines.push('#### Bundle Size');
+    lines.push('');
+    lines.push(insights.bundleSize.summary);
+    lines.push('');
+    lines.push(`**Top offender:** \`${insights.bundleSize.topOffender}\``);
+    lines.push('');
+    lines.push(insights.bundleSize.recommendation);
+    lines.push('');
+  }
+
+  if (insights.licenses) {
+    lines.push('#### Licenses');
+    lines.push('');
+    lines.push(insights.licenses.summary);
+    lines.push('');
+    lines.push(`**Risk level:** ${insights.licenses.riskLevel}`);
+    lines.push('');
+    lines.push(insights.licenses.advice);
+    lines.push('');
+  }
+
+  if (insights.unused) {
+    lines.push('#### Unused Dependencies');
+    lines.push('');
+    lines.push(insights.unused.summary);
+    lines.push('');
+    lines.push(insights.unused.cleanupAdvice);
+    lines.push('');
+  }
+
+  return lines.join('\n');
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -189,6 +238,10 @@ export function formatMarkdown(report: FullReport): string {
 
   const errorSection = renderErrors(report.errors);
   if (errorSection) parts.push(errorSection);
+
+  if (report.aiInsights) {
+    parts.push(renderAIInsights(report.aiInsights));
+  }
 
   return parts.join('\n\n') + '\n';
 }

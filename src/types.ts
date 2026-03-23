@@ -63,15 +63,66 @@ export interface AnalyzerError {
   message: string;
 }
 
+// ---------------------------------------------------------------------------
+// AI provider types
+// ---------------------------------------------------------------------------
+
+export type AIProviderName = 'grok';
+
+export interface AIOptions {
+  provider: AIProviderName;
+  apiKey: string;
+  model: string;
+}
+
+// Per-analyzer insight types (structured output shapes)
+
+export interface OutdatedInsight {
+  summary: string;
+  priorityPackage: string;
+  upgradeAdvice: string;
+}
+
+export interface BundleSizeInsight {
+  summary: string;
+  topOffender: string;
+  recommendation: string;
+}
+
+export interface LicenseInsight {
+  summary: string;
+  riskLevel: 'low' | 'medium' | 'high';
+  advice: string;
+}
+
+export interface UnusedInsight {
+  summary: string;
+  cleanupAdvice: string;
+}
+
+export interface AIInsights {
+  outdated?: OutdatedInsight;
+  bundleSize?: BundleSizeInsight;
+  licenses?: LicenseInsight;
+  unused?: UnusedInsight;
+}
+
+// ---------------------------------------------------------------------------
+// Analyzer strategy interface
+// ---------------------------------------------------------------------------
+
 /**
  * Strategy interface implemented by every analyzer class.
- * The generic parameter preserves the concrete result type of each analyzer.
+ * TResult is the concrete result type; TInsight is the optional AI insight type.
  */
-export interface Analyzer<TResult> {
-  analyze(options: AnalyzerOptions): Promise<{result: TResult | null; error: AnalyzerError | null}>;
+export interface Analyzer<TResult, TInsight = never> {
+  analyze(options: AnalyzerOptions): Promise<{
+    result: TResult | null;
+    aiInsights?: [TInsight] extends [never] ? never : TInsight;
+    error: AnalyzerError | null;
+  }>;
 }
-// {result: OutdatedPackage[] | null;
-//   error: AnalyzerError | null}
+
 export interface FullReport {
   outdated: OutdatedPackage[];
   bundleSize: BundleSizeReport;
@@ -79,4 +130,5 @@ export interface FullReport {
   unused: UnusedReport;
   score: number;
   errors: AnalyzerError[];
+  aiInsights?: AIInsights;
 }
