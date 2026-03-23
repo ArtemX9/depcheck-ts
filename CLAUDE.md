@@ -47,7 +47,11 @@ src/
 │   ├── service.ts      # AIInsightsService — thin delegation layer; analyzers depend on this, not a provider.
 │   └── providers/
 │       ├── index.ts    # createProvider(options) factory — maps AIProviderName → concrete implementation.
-│       └── grok.ts     # GrokProvider — calls https://api.x.ai/v1/chat/completions with structured JSON output.
+│       └── grok/
+│           ├── index.ts   # GrokProvider class — orchestrates API calls via callApi().
+│           ├── schemas.ts # Zod schemas (OutdatedSchema, etc.) + z.toJSONSchema() exports for the API.
+│           ├── types.ts   # ChatMessage and GrokResponseBody types.
+│           └── utils.ts   # isGrokResponseBody() type guard.
 ├── reporters/          # Each reporter takes a FullReport and returns a formatted string.
 │   ├── terminal.ts     # chalk + cli-table3 colored output.
 │   ├── json.ts         # JSON.stringify with structure.
@@ -74,6 +78,7 @@ AI flow (when `--ai-*` flags or `ai` config block are present): each analyzer re
 - Error handling: individual analyzer failures must never crash the tool. Wrap each analyzer in try/catch, include partial results + error details in the report. A failed bundlephobia call should not prevent the outdated check from reporting.
 - Use `undici` (built into Node 20+) for HTTP requests, not `node-fetch` or `axios`.
 - Prefer `node:` protocol for built-in imports: `import { readFile } from 'node:fs/promises'`.
+- AI response validation uses Zod schemas (`src/ai/providers/grok/schemas.ts`). Define schemas as `z.object(...)`, export `z.toJSONSchema(Schema)` for the API request, and use `Schema.parse(result)` for validation. Never write manual type guards for AI responses.
 
 ## Testing
 
@@ -145,7 +150,7 @@ The provider system uses a strategy pattern:
 - `LLMProvider` (`ai/types.ts`) — interface every provider must implement: `analyzeOutdated`, `analyzeBundleSize`, `analyzeLicenses`, `analyzeUnused`.
 - `AIInsightsService` (`ai/service.ts`) — thin wrapper that analyzers depend on. Keeps analyzers decoupled from the concrete HTTP client.
 - `createProvider(options)` (`ai/providers/index.ts`) — factory that maps `AIProviderName` → implementation.
-- `GrokProvider` (`ai/providers/grok.ts`) — current implementation. Uses structured JSON output (`response_format.type = 'json_schema'`), validates the response shape with a type guard before returning.
+- `GrokProvider` (`ai/providers/grok/`) — current implementation. Schemas are defined as Zod objects in `schemas.ts`; `z.toJSONSchema()` converts them for the API's `response_format.json_schema` field. Response parsing uses `Schema.parse()` which throws a descriptive `ZodError` on invalid shapes.
 
 To add a new provider: implement `LLMProvider`, add the name to `AIProviderName` in `types.ts`, register it in `createProvider`, and add tests in `tests/ai/providers/`.
 

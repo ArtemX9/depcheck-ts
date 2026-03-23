@@ -12,9 +12,17 @@ import type {
 } from '../../../types';
 import {type ChatMessage} from './types';
 import {isGrokResponseBody} from './utils';
-import {BUNDLE_SIZE_SCHEMA, LICENSE_SCHEMA, OUTDATED_SCHEMA, UNUSED_SCHEMA} from './schemas';
+import {
+  BundleSizeSchema,
+  BUNDLE_SIZE_JSON_SCHEMA,
+  LicenseSchema,
+  LICENSE_JSON_SCHEMA,
+  OutdatedSchema,
+  OUTDATED_JSON_SCHEMA,
+  UnusedSchema,
+  UNUSED_JSON_SCHEMA,
+} from './schemas';
 import {buildBundleSizePrompt, buildLicensePrompt, buildOutdatedPrompt, buildUnusedPrompt} from '../../prompts';
-import {isBundleSizeInsight, isLicenseInsight, isOutdatedInsight, isUnusedInsight} from '../../utils';
 
 export class GrokProvider implements LLMProvider {
   private readonly apiKey: string;
@@ -70,7 +78,7 @@ export class GrokProvider implements LLMProvider {
   }
 
   async analyzeOutdated(packages: OutdatedPackage[]): Promise<OutdatedInsight> {
-    const result = await this.callApi('outdated_insight', OUTDATED_SCHEMA, [
+    const result = await this.callApi('outdated_insight', OUTDATED_JSON_SCHEMA, [
       {
         role: Role.SYSTEM,
         content:
@@ -82,14 +90,11 @@ export class GrokProvider implements LLMProvider {
       },
     ]);
 
-    if (!isOutdatedInsight(result)) {
-      throw new Error('Grok API returned invalid OutdatedInsight shape');
-    }
-    return result;
+    return OutdatedSchema.parse(result);
   }
 
   async analyzeBundleSize(report: BundleSizeReport): Promise<BundleSizeInsight> {
-    const result = await this.callApi('bundle_size_insight', BUNDLE_SIZE_SCHEMA, [
+    const result = await this.callApi('bundle_size_insight', BUNDLE_SIZE_JSON_SCHEMA, [
       {
         role: Role.SYSTEM,
         content:
@@ -101,14 +106,11 @@ export class GrokProvider implements LLMProvider {
       },
     ]);
 
-    if (!isBundleSizeInsight(result)) {
-      throw new Error('Grok API returned invalid BundleSizeInsight shape');
-    }
-    return result;
+    return BundleSizeSchema.parse(result);
   }
 
   async analyzeLicenses(report: LicenseReport): Promise<LicenseInsight> {
-    const result = await this.callApi('license_insight', LICENSE_SCHEMA, [
+    const result = await this.callApi('license_insight', LICENSE_JSON_SCHEMA, [
       {
         role: Role.SYSTEM,
         content:
@@ -120,14 +122,11 @@ export class GrokProvider implements LLMProvider {
       },
     ]);
 
-    if (!isLicenseInsight(result)) {
-      throw new Error('Grok API returned invalid LicenseInsight shape');
-    }
-    return result;
+    return LicenseSchema.parse(result);
   }
 
   async analyzeUnused(report: UnusedReport): Promise<UnusedInsight> {
-    const result = await this.callApi('unused_insight', UNUSED_SCHEMA, [
+    const result = await this.callApi('unused_insight', UNUSED_JSON_SCHEMA, [
       {
         role: Role.SYSTEM,
         content:
@@ -139,9 +138,6 @@ export class GrokProvider implements LLMProvider {
       },
     ]);
 
-    if (!isUnusedInsight(result)) {
-      throw new Error('Grok API returned invalid UnusedInsight shape');
-    }
-    return result;
+    return UnusedSchema.parse(result);
   }
 }

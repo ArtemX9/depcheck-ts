@@ -1,42 +1,30 @@
-export const OUTDATED_SCHEMA = {
-    type: 'object',
-    properties: {
-        summary: { type: 'string' },
-        priorityPackage: { type: 'string' },
-        upgradeAdvice: { type: 'string' },
-    },
-    required: ['summary', 'priorityPackage', 'upgradeAdvice'],
-    additionalProperties: false,
-};
+import { z } from 'zod';
 
-export const BUNDLE_SIZE_SCHEMA = {
-    type: 'object',
-    properties: {
-        summary: { type: 'string' },
-        topOffender: { type: 'string' },
-        recommendation: { type: 'string' },
-    },
-    required: ['summary', 'topOffender', 'recommendation'],
-    additionalProperties: false,
-};
+export const OutdatedSchema = z.object({
+    summary: z.string(),
+    priorityPackage: z.string(),
+    upgradeAdvice: z.string(),
+});
 
-export const LICENSE_SCHEMA = {
-    type: 'object',
-    properties: {
-        summary: { type: 'string' },
-        riskLevel: { type: 'string', enum: ['low', 'medium', 'high'] },
-        advice: { type: 'string' },
-    },
-    required: ['summary', 'riskLevel', 'advice'],
-    additionalProperties: false,
-};
+export const BundleSizeSchema = z.object({
+    summary: z.string(),
+    topOffender: z.string(),
+    recommendation: z.string(),
+});
 
-export const UNUSED_SCHEMA = {
-    type: 'object',
-    properties: {
-        summary: { type: 'string' },
-        cleanupAdvice: { type: 'string' },
-    },
-    required: ['summary', 'cleanupAdvice'],
-    additionalProperties: false,
-};
+export const LicenseSchema = z.object({
+    summary: z.string(),
+    riskLevel: z.enum(['low', 'medium', 'high']),
+    advice: z.string(),
+});
+
+export const UnusedSchema = z.object({
+    summary: z.string(),
+    cleanupAdvice: z.string(),
+});
+
+// JSON Schema representations for the Grok API's response_format field
+export const OUTDATED_JSON_SCHEMA = z.toJSONSchema(OutdatedSchema);
+export const BUNDLE_SIZE_JSON_SCHEMA = z.toJSONSchema(BundleSizeSchema);
+export const LICENSE_JSON_SCHEMA = z.toJSONSchema(LicenseSchema);
+export const UNUSED_JSON_SCHEMA = z.toJSONSchema(UnusedSchema);
