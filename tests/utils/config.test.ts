@@ -11,6 +11,7 @@ vi.mock('node:fs/promises', () => ({
 
 import { readFile } from 'node:fs/promises';
 import { loadConfig } from '../../src/utils/config';
+import { OutputFormat } from '../../src/types';
 
 const mockReadFile = vi.mocked(readFile);
 
@@ -48,7 +49,7 @@ describe('loadConfig()', () => {
       const config = await loadConfig('/some/project');
       expect(config).toEqual({
         path: '/my/project',
-        format: 'json',
+        format: OutputFormat.JSON,
         ci: true,
         ai: {
           provider: 'grok',
@@ -67,10 +68,10 @@ describe('loadConfig()', () => {
     });
 
     it('parses a config with only the format field', async () => {
-      mockReadFile.mockResolvedValue(JSON.stringify({ format: 'markdown' }));
+      mockReadFile.mockResolvedValue(JSON.stringify({ format: OutputFormat.MARKDOWN }));
 
       const config = await loadConfig('/some/project');
-      expect(config.format).toBe('markdown');
+      expect(config.format).toBe(OutputFormat.MARKDOWN);
     });
 
     it('parses a config with only the ci field', async () => {

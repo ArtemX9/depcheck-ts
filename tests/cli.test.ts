@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { faker } from '@faker-js/faker';
 import type { FullReport } from '../src/types.js';
+import { OutputFormat } from '../src/types.js';
 
 // ---------------------------------------------------------------------------
 // Mock analyze() and loadConfig() before importing the CLI so the module
@@ -51,6 +52,7 @@ function argv(...extra: string[]): string[] {
 // ---------------------------------------------------------------------------
 
 let stdoutSpy: ReturnType<typeof vi.spyOn>;
+let stderrSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   mockAnalyze.mockReset();
@@ -58,10 +60,12 @@ beforeEach(() => {
   mockAnalyze.mockResolvedValue(makeReport());
   mockLoadConfig.mockResolvedValue({});
   stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+  stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 });
 
 afterEach(() => {
   stdoutSpy.mockRestore();
+  stderrSpy.mockRestore();
 });
 
 // ---------------------------------------------------------------------------
@@ -130,7 +134,7 @@ describe('CLI – --format flag', () => {
   it('writes terminal reporter output to stdout when --format terminal is set explicitly', async () => {
     const stdoutWrite = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
-    await run(argv('--format', 'terminal'));
+    await run(argv('--format', OutputFormat.TERMINAL));
 
     // The real terminal reporter returns a non-empty string (health score line at minimum)
     expect(stdoutWrite).toHaveBeenCalledOnce();
@@ -153,7 +157,7 @@ describe('CLI – --format flag', () => {
   it('uses the JSON reporter when --format json is supplied', async () => {
     const stdoutWrite = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
-    await run(argv('--format', 'json'));
+    await run(argv('--format', OutputFormat.JSON));
 
     expect(stdoutWrite).toHaveBeenCalledOnce();
     const written = stdoutWrite.mock.calls[0]?.[0] as string;
@@ -166,7 +170,7 @@ describe('CLI – --format flag', () => {
   it('uses the markdown reporter when --format markdown is supplied', async () => {
     const stdoutWrite = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
-    await run(argv('--format', 'markdown'));
+    await run(argv('--format', OutputFormat.MARKDOWN));
 
     expect(stdoutWrite).toHaveBeenCalledOnce();
     const written = stdoutWrite.mock.calls[0]?.[0] as string;
@@ -336,7 +340,7 @@ describe('CLI – config file merging', () => {
   });
 
   it('uses config.format when no --format CLI flag is provided', async () => {
-    mockLoadConfig.mockResolvedValue({ format: 'markdown' });
+    mockLoadConfig.mockResolvedValue({ format: OutputFormat.MARKDOWN });
     const stdoutWrite = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
     await run(argv());
@@ -347,10 +351,10 @@ describe('CLI – config file merging', () => {
   });
 
   it('CLI --format overrides config.format', async () => {
-    mockLoadConfig.mockResolvedValue({ format: 'markdown' });
+    mockLoadConfig.mockResolvedValue({ format: OutputFormat.MARKDOWN });
     const stdoutWrite = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
-    await run(argv('--format', 'json'));
+    await run(argv('--format', OutputFormat.JSON));
 
     const written = stdoutWrite.mock.calls[0]?.[0] as string;
     const parsed = JSON.parse(written) as Record<string, unknown>;
@@ -462,5 +466,63 @@ describe('CLI – config ci flag', () => {
 
     expect(exitSpy).toHaveBeenCalledWith(1);
     exitSpy.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Progress callback
+// ---------------------------------------------------------------------------
+
+describe('CLI – progress callback', () => {
+  it('passes onProgress in AnalyzerOptions for terminal format', async () => {
+    await run(argv('--format', OutputFormat.TERMINAL));
+
+    expect(mockAnalyze).toHaveBeenCalledWith(
+      expect.objectContaining({ onProgress: expect.any(Function) as unknown }),
+      undefined,
+    );
+  });
+
+  it('does not pass onProgress for json format', async () => {
+    await run(argv('--format', OutputFormat.JSON));
+
+    expect(mockAnalyze).toHaveBeenCalledWith(
+      expect.not.objectContaining({ onProgress: expect.any(Function) }),
+      undefined,
+    );
+  });
+
+  it('does not pass onProgress for markdown format', async () => {
+    await run(argv('--format', OutputFormat.MARKDOWN));
+
+    expect(mockAnalyze).toHaveBeenCalledWith(
+      expect.not.objectContaining({ onProgress: expect.any(Function) }),
+      undefined,
+    );
+  });
+
+  it('writes progress messages to stderr for terminal format', async () => {
+    await run(argv('--format', OutputFormat.TERMINAL));
+
+    expect(stderrSpy).toHaveBeenCalled();
+  });
+
+  it('does not write progress messages to stderr for json format', async () => {
+    await run(argv('--format', OutputFormat.JSON));
+
+    expect(stderrSpy).not.toHaveBeenCalled();
+  });
+
+  it('does not write progress messages to stderr for markdown format', async () => {
+    await run(argv('--format', OutputFormat.MARKDOWN));
+
+    expect(stderrSpy).not.toHaveBeenCalled();
+  });
+
+  it('writes the "Analysis complete!" line to stderr after terminal analysis', async () => {
+    await run(argv('--format', OutputFormat.TERMINAL));
+
+    const allCalls = stderrSpy.mock.calls.map((c: unknown[]) => c[0] as string);
+    expect(allCalls.some((s: string) => s.includes('Analysis complete!'))).toBe(true);
   });
 });

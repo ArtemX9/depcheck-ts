@@ -1,6 +1,7 @@
 import { Command } from 'commander';
+import chalk from 'chalk';
 import { analyze } from './index.js';
-import type { AIOptions, AIProviderName, FullReport } from './types.ts';
+import {type AIOptions, type AIProviderName, type FullReport, OutputFormat} from './types.ts';
 import { formatTerminal } from './reporters/terminal.ts';
 import { formatMarkdown } from './reporters/markdown.ts';
 import { formatJson } from './reporters/json';
@@ -43,7 +44,7 @@ function buildProgram(): Command {
 
       // Merge: CLI flags win over config file
       const effectivePath = cliPath ?? config.path ?? process.cwd();
-      const effectiveFormat = opts.format ?? config.format ?? 'terminal';
+      const effectiveFormat = (opts.format ?? config.format ?? OutputFormat.TERMINAL) as OutputFormat;
       const effectiveCi = opts.ci || (config.ci ?? false);
 
       // AI options: CLI flags override config file
@@ -61,14 +62,22 @@ function buildProgram(): Command {
         aiOptions = { provider: aiProviderRaw as AIProviderName, apiKey: aiKey, model: aiModel };
       }
 
-      const report = await analyze({ projectPath: effectivePath }, aiOptions);
+      const onProgress = effectiveFormat === OutputFormat.TERMINAL
+        ? (msg: string) => process.stderr.write(chalk.dim(msg) + '\n')
+        : undefined;
+
+      const report = await analyze({ projectPath: effectivePath, onProgress }, aiOptions);
+
+      if (effectiveFormat === OutputFormat.TERMINAL) {
+        process.stderr.write(chalk.dim('✅ Analysis complete!\n\n'));
+      }
 
       let output: string;
       switch (effectiveFormat) {
-        case 'json':
+        case OutputFormat.JSON:
           output = reportJson(report);
           break;
-        case 'markdown':
+        case OutputFormat.MARKDOWN:
           output = reportMarkdown(report);
           break;
         default:

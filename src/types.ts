@@ -2,9 +2,16 @@ export interface DependencyMap {
   [name: string]: string;
 }
 
+export enum OutputFormat {
+  TERMINAL = 'terminal',
+  JSON = 'json',
+  MARKDOWN = 'markdown',
+}
+
 export interface AnalyzerOptions {
   projectPath: string;
   includeDev?: boolean;
+  onProgress?: (msg: string) => void;
 }
 
 export enum VersionBump {

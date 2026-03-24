@@ -26,7 +26,7 @@ import type {
   AIOptions,
   OutdatedInsight,
 } from '../src/types';
-import { VersionBump } from '../src/types';
+import { VersionBump, OutputFormat } from '../src/types';
 
 // ---------------------------------------------------------------------------
 // Use vi.hoisted() so the mock functions are available before the vi.mock
@@ -167,9 +167,9 @@ beforeEach(() => {
 // Helper: run the full pipeline and return formatted output
 // ---------------------------------------------------------------------------
 
-async function runPipeline(format: 'terminal' | 'markdown'): Promise<string> {
+async function runPipeline(format: OutputFormat): Promise<string> {
   const report = await analyze(options);
-  return format === 'terminal' ? formatTerminal(report) : formatMarkdown(report);
+  return format === OutputFormat.TERMINAL ? formatTerminal(report) : formatMarkdown(report);
 }
 
 // ---------------------------------------------------------------------------
@@ -178,70 +178,70 @@ async function runPipeline(format: 'terminal' | 'markdown'): Promise<string> {
 
 describe('integration: terminal reporter', () => {
   it('contains the health score header', async () => {
-    const output = await runPipeline('terminal');
+    const output = await runPipeline(OutputFormat.TERMINAL);
     expect(output).toContain('Health Score:');
   });
 
   it('contains the outdated packages section header', async () => {
-    const output = await runPipeline('terminal');
+    const output = await runPipeline(OutputFormat.TERMINAL);
     expect(output).toContain('Outdated Packages');
   });
 
   it('includes the express package name in the outdated table', async () => {
-    const output = await runPipeline('terminal');
+    const output = await runPipeline(OutputFormat.TERMINAL);
     expect(output).toContain('express');
   });
 
   it('includes both installed and latest versions for express', async () => {
-    const output = await runPipeline('terminal');
+    const output = await runPipeline(OutputFormat.TERMINAL);
     expect(output).toContain('4.18.0');
     expect(output).toContain('5.0.0');
   });
 
   it('includes the lodash package in the outdated table', async () => {
-    const output = await runPipeline('terminal');
+    const output = await runPipeline(OutputFormat.TERMINAL);
     expect(output).toContain('lodash');
   });
 
   it('contains the MAJOR bump label for express', async () => {
-    const output = await runPipeline('terminal');
+    const output = await runPipeline(OutputFormat.TERMINAL);
     expect(output).toMatch(/MAJOR/);
   });
 
   it('contains the PATCH bump label for lodash', async () => {
-    const output = await runPipeline('terminal');
+    const output = await runPipeline(OutputFormat.TERMINAL);
     expect(output).toMatch(/PATCH/);
   });
 
   it('contains the unused dependencies section header', async () => {
-    const output = await runPipeline('terminal');
+    const output = await runPipeline(OutputFormat.TERMINAL);
     expect(output).toContain('Unused Dependencies');
   });
 
   it('lists chalk as an unused dependency', async () => {
-    const output = await runPipeline('terminal');
+    const output = await runPipeline(OutputFormat.TERMINAL);
     expect(output).toContain('chalk');
   });
 
   it('does not contain "All checks passed" when there are issues', async () => {
-    const output = await runPipeline('terminal');
+    const output = await runPipeline(OutputFormat.TERMINAL);
     expect(output).not.toContain('All checks passed');
   });
 
   it('ends with a newline', async () => {
-    const output = await runPipeline('terminal');
+    const output = await runPipeline(OutputFormat.TERMINAL);
     expect(output.endsWith('\n')).toBe(true);
   });
 
   it('the outdated analyze method is called with options containing the fixture path', async () => {
-    await runPipeline('terminal');
+    await runPipeline(OutputFormat.TERMINAL);
     expect(mocks.outdatedAnalyze).toHaveBeenCalledWith(
       expect.objectContaining({ projectPath: FIXTURE_PATH }) as AnalyzerOptions,
     );
   });
 
   it('the unused analyze method is called with options containing the fixture path', async () => {
-    await runPipeline('terminal');
+    await runPipeline(OutputFormat.TERMINAL);
     expect(mocks.unusedAnalyze).toHaveBeenCalledWith(
       expect.objectContaining({ projectPath: FIXTURE_PATH }) as AnalyzerOptions,
     );
@@ -251,7 +251,7 @@ describe('integration: terminal reporter', () => {
     mocks.outdatedAnalyze.mockResolvedValue(ok([]));
     mocks.unusedAnalyze.mockResolvedValue(ok({ unused: [], missingFromPackageJson: [] }));
 
-    const output = await runPipeline('terminal');
+    const output = await runPipeline(OutputFormat.TERMINAL);
     expect(output).toContain('All checks passed');
   });
 });
@@ -262,68 +262,68 @@ describe('integration: terminal reporter', () => {
 
 describe('integration: markdown reporter', () => {
   it('contains the top-level H2 report heading', async () => {
-    const output = await runPipeline('markdown');
+    const output = await runPipeline(OutputFormat.MARKDOWN);
     expect(output).toContain('## Dependency Health Report');
   });
 
   it('contains the H3 outdated packages heading', async () => {
-    const output = await runPipeline('markdown');
+    const output = await runPipeline(OutputFormat.MARKDOWN);
     expect(output).toContain('### Outdated Packages');
   });
 
   it('contains a markdown table header row with pipe characters', async () => {
-    const output = await runPipeline('markdown');
+    const output = await runPipeline(OutputFormat.MARKDOWN);
     expect(output).toMatch(/\|.*Package.*\|.*Installed.*\|.*Latest.*\|/);
   });
 
   it('contains a markdown table separator row', async () => {
-    const output = await runPipeline('markdown');
+    const output = await runPipeline(OutputFormat.MARKDOWN);
     expect(output).toContain('| --- |');
   });
 
   it('contains a table row for express with backtick-formatted name', async () => {
-    const output = await runPipeline('markdown');
+    const output = await runPipeline(OutputFormat.MARKDOWN);
     expect(output).toContain('`express`');
   });
 
   it('includes both installed and latest versions for express in the markdown table', async () => {
-    const output = await runPipeline('markdown');
+    const output = await runPipeline(OutputFormat.MARKDOWN);
     expect(output).toContain('4.18.0');
     expect(output).toContain('5.0.0');
   });
 
   it('includes a table row for lodash', async () => {
-    const output = await runPipeline('markdown');
+    const output = await runPipeline(OutputFormat.MARKDOWN);
     expect(output).toContain('`lodash`');
   });
 
   it('shows MAJOR bump label in the markdown table row for express', async () => {
-    const output = await runPipeline('markdown');
+    const output = await runPipeline(OutputFormat.MARKDOWN);
     expect(output).toContain('MAJOR');
   });
 
   it('contains the H3 unused dependencies heading', async () => {
-    const output = await runPipeline('markdown');
+    const output = await runPipeline(OutputFormat.MARKDOWN);
     expect(output).toContain('### Unused Dependencies');
   });
 
   it('lists chalk as unused with backtick formatting', async () => {
-    const output = await runPipeline('markdown');
+    const output = await runPipeline(OutputFormat.MARKDOWN);
     expect(output).toContain('`chalk`');
   });
 
   it('contains the "Declared but not imported" label', async () => {
-    const output = await runPipeline('markdown');
+    const output = await runPipeline(OutputFormat.MARKDOWN);
     expect(output).toContain('Declared but not imported');
   });
 
   it('contains the health score badge img tag', async () => {
-    const output = await runPipeline('markdown');
+    const output = await runPipeline(OutputFormat.MARKDOWN);
     expect(output).toContain('![Health Score]');
   });
 
   it('ends with a newline', async () => {
-    const output = await runPipeline('markdown');
+    const output = await runPipeline(OutputFormat.MARKDOWN);
     expect(output.endsWith('\n')).toBe(true);
   });
 
@@ -331,7 +331,7 @@ describe('integration: markdown reporter', () => {
     mocks.outdatedAnalyze.mockResolvedValue(ok([]));
     mocks.unusedAnalyze.mockResolvedValue(ok({ unused: [], missingFromPackageJson: [] }));
 
-    const output = await runPipeline('markdown');
+    const output = await runPipeline(OutputFormat.MARKDOWN);
     expect(output).toContain('No outdated packages found');
   });
 
@@ -339,12 +339,12 @@ describe('integration: markdown reporter', () => {
     mocks.outdatedAnalyze.mockResolvedValue(ok([]));
     mocks.unusedAnalyze.mockResolvedValue(ok({ unused: [], missingFromPackageJson: [] }));
 
-    const output = await runPipeline('markdown');
+    const output = await runPipeline(OutputFormat.MARKDOWN);
     expect(output).toContain('No unused dependencies found');
   });
 
   it('calls both analyzer analyze methods exactly once per pipeline run', async () => {
-    await runPipeline('markdown');
+    await runPipeline(OutputFormat.MARKDOWN);
     expect(mocks.outdatedAnalyze).toHaveBeenCalledTimes(1);
     expect(mocks.unusedAnalyze).toHaveBeenCalledTimes(1);
   });

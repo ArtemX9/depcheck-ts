@@ -1,9 +1,10 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import {OutputFormat} from '../types';
 
 export interface DepcheckConfig {
   path?: string;
-  format?: 'terminal' | 'json' | 'markdown';
+  format?: OutputFormat;
   ci?: boolean;
   ai?: {
     provider: string;
@@ -22,7 +23,7 @@ function isDepcheckConfig(val: unknown): val is DepcheckConfig {
   if (v['path'] !== undefined && typeof v['path'] !== 'string') return false;
   if (
     v['format'] !== undefined &&
-    !['terminal', 'json', 'markdown'].includes(v['format'] as string)
+    ![OutputFormat.TERMINAL, OutputFormat.JSON, OutputFormat.MARKDOWN].includes(v['format'] as OutputFormat)
   )
     return false;
   if (v['ci'] !== undefined && typeof v['ci'] !== 'boolean') return false;

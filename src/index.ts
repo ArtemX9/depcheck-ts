@@ -15,6 +15,15 @@ import { readPackageJson } from './utils/parser.ts';
 import { AIInsightsService } from './ai/service.js';
 import { createProvider } from './ai/providers/index.js';
 
+function withProgress<T>(
+    msg: string,
+    promise: Promise<T>,
+    onProgress?: (m: string) => void,
+): Promise<T> {
+    onProgress?.(msg);
+    return promise;
+}
+
 function calculateScore(report: Omit<FullReport, 'score' | 'errors' | 'aiInsights'>): number {
     let penalty = 0;
 
@@ -53,7 +62,13 @@ export async function analyze(options: AnalyzerOptions, aiOptions?: AIOptions): 
 
     const errors: AnalyzerError[] = [];
 
+    options.onProgress?.('🔍 Scanning your project...');
+
     const aiService = aiOptions ? new AIInsightsService(createProvider(aiOptions)) : undefined;
+
+    if (aiOptions) {
+        options.onProgress?.('🤖 AI insights enabled');
+    }
 
     const unusedAnalyzer = new UnusedAnalyzer(allDeps, aiService);
     const licenseAnalyzer = new LicenseAnalyzer(allDeps, aiService);
@@ -64,10 +79,10 @@ export async function analyze(options: AnalyzerOptions, aiOptions?: AIOptions): 
     // Using the functions directly (not the class constructors) ensures that
     // vi.mock() overrides of the standalone exports are respected in tests.
     const [outdatedRun, bundleSizeRun, licensesRun, unusedRun] = await Promise.all([
-        outdatedAnalyzer.analyze(options),
-        bundleSizeAnalyzer.analyze(options),
-        licenseAnalyzer.analyze(options),
-        unusedAnalyzer.analyze(options),
+        withProgress('📋 Checking for outdated packages...', outdatedAnalyzer.analyze(options), options.onProgress),
+        withProgress('📦 Analyzing bundle sizes...', bundleSizeAnalyzer.analyze(options), options.onProgress),
+        withProgress('⚖️ Scanning licenses...', licenseAnalyzer.analyze(options), options.onProgress),
+        withProgress('🧹 Looking for unused dependencies...', unusedAnalyzer.analyze(options), options.onProgress),
     ]);
 
     if (outdatedRun.error !== null) errors.push(outdatedRun.error);
