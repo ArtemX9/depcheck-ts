@@ -152,6 +152,12 @@ Each report includes a `score` from 0 to 100. Penalties are applied per finding:
 
 Score floor is 0.
 
+## Roadmap
+
+- Support OpenAI provider
+- Support Ollama provider
+- Extra analyzer for vulnerabilities
+
 ## Contributing
 
 ```bash
