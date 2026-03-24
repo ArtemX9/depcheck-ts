@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { faker } from '@faker-js/faker';
 import { OutdatedAnalyzer } from '../../../src/analyzers/outdated/index';
 import { VersionBump } from '../../../src/types';
+import type { AIInsightsService } from '../../../src/ai/service';
 
 vi.mock('../../../src/utils/registry', () => ({
   fetchPackageInfo: vi.fn(),
@@ -184,5 +185,46 @@ describe('OutdatedAnalyzer', () => {
 
     const { result } = await new OutdatedAnalyzer({ [name]: '1.0.0' }).analyze(options);
     expect(result).toEqual([]);
+  });
+
+  describe('AI service isolation', () => {
+    it('returns local results even when AI service throws', async () => {
+      const name = faker.internet.domainWord();
+      const current = faker.system.semver();
+      const latest = bump(current, VersionBump.MAJOR);
+      mockFetch.mockResolvedValue(mockRegistry(name, latest));
+
+      const failingAiService = {
+        analyzeOutdated: vi.fn().mockRejectedValue(new Error('Grok API error: 400 Bad Request')),
+      } as unknown as AIInsightsService;
+
+      const analyzer = new OutdatedAnalyzer({ [name]: current }, failingAiService);
+      const run = await analyzer.analyze(options);
+
+      expect(run.result).not.toBeNull();
+      expect(run.result).toHaveLength(1);
+      expect(run.result?.[0]).toMatchObject({ name, type: VersionBump.MAJOR });
+      expect(run.error).not.toBeNull();
+      expect(run.error?.analyzer).toBe('outdated:ai');
+      expect(run.error?.message).toContain('400 Bad Request');
+      expect(run.aiInsights).toBeUndefined();
+    });
+
+    it('preserves local results and records AI error without affecting the score-relevant data', async () => {
+      const name = faker.internet.domainWord();
+      const current = faker.system.semver();
+      const latest = bump(current, VersionBump.MINOR);
+      mockFetch.mockResolvedValue(mockRegistry(name, latest));
+
+      const failingAiService = {
+        analyzeOutdated: vi.fn().mockRejectedValue(new Error('network failure')),
+      } as unknown as AIInsightsService;
+
+      const { result, error } = await new OutdatedAnalyzer({ [name]: current }, failingAiService).analyze(options);
+
+      expect(result).not.toBeNull();
+      expect(result?.[0]).toMatchObject({ name, type: VersionBump.MINOR });
+      expect(error?.analyzer).toBe('outdated:ai');
+    });
   });
 });

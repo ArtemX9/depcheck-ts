@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { faker } from '@faker-js/faker';
 import type { AnalyzerOptions, DependencyMap } from '../../../src/types';
+import type { AIInsightsService } from '../../../src/ai/service';
 
 // ---------------------------------------------------------------------------
 // Mock node:fs/promises so we never touch the real filesystem.
@@ -390,6 +391,45 @@ describe('LicenseAnalyzer', () => {
       await expect(
         new LicenseAnalyzer(deps('some-pkg')).analyze(makeOptions()),
       ).resolves.toBeDefined();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // AI service isolation
+  // -------------------------------------------------------------------------
+
+  describe('AI service isolation', () => {
+    it('returns local results even when AI service throws', async () => {
+      setupReadFile('/fake/project', 'MIT', { lodash: 'MIT' });
+
+      const failingAiService = {
+        analyzeLicenses: vi.fn().mockRejectedValue(new Error('Grok API error: 400 Bad Request')),
+      } as unknown as AIInsightsService;
+
+      const analyzer = new LicenseAnalyzer(deps('lodash'), failingAiService);
+      const run = await analyzer.analyze(makeOptions());
+
+      expect(run.result).not.toBeNull();
+      expect(unwrap(run.result).packages).toHaveLength(1);
+      expect(unwrap(run.result).packages[0]).toMatchObject({ name: 'lodash', license: 'MIT' });
+      expect(run.error).not.toBeNull();
+      expect(run.error?.analyzer).toBe('licenses:ai');
+      expect(run.error?.message).toContain('400 Bad Request');
+      expect(run.aiInsights).toBeUndefined();
+    });
+
+    it('preserves conflict detection results when AI service throws', async () => {
+      setupReadFile('/fake/project', 'MIT', { 'gpl-pkg': 'GPL-3.0' });
+
+      const failingAiService = {
+        analyzeLicenses: vi.fn().mockRejectedValue(new Error('network failure')),
+      } as unknown as AIInsightsService;
+
+      const { result, error } = await new LicenseAnalyzer(deps('gpl-pkg'), failingAiService).analyze(makeOptions());
+
+      expect(unwrap(result).conflicts).toHaveLength(1);
+      expect(unwrap(result).conflicts[0].name).toBe('gpl-pkg');
+      expect(error?.analyzer).toBe('licenses:ai');
     });
   });
 

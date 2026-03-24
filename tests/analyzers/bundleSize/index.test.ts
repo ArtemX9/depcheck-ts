@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { faker } from '@faker-js/faker';
 import type { AnalyzerOptions, DependencyMap } from '../../../src/types';
+import type { AIInsightsService } from '../../../src/ai/service';
 
 // ---------------------------------------------------------------------------
 // Mock bundlephobia util before importing the analyzer.
@@ -322,6 +323,56 @@ describe('BundleSizeAnalyzer', () => {
       await new BundleSizeAnalyzer({ [name]: `~${base}` }).analyze(OPTIONS);
 
       expect(mockFetch).toHaveBeenCalledWith(name, base);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // AI service isolation
+  // -------------------------------------------------------------------------
+
+  describe('AI service isolation', () => {
+    it('returns local results even when AI service throws', async () => {
+      const name = faker.internet.domainWord();
+      const version = semver();
+      mockFetch.mockResolvedValue(bundlephobiaResult(name, version, LIGHT_GZIP));
+
+      const failingAiService = {
+        analyzeBundleSize: vi.fn().mockRejectedValue(new Error('Grok API error: 400 Bad Request')),
+      } as unknown as AIInsightsService;
+
+      const analyzer = new BundleSizeAnalyzer(makeDeps(name), failingAiService);
+      const run = await analyzer.analyze(OPTIONS);
+
+      expect(run.result).not.toBeNull();
+      expect(unwrap(run.result).packages).toHaveLength(1);
+      expect(unwrap(run.result).packages[0]).toMatchObject({ name, heavy: false });
+      expect(run.error).not.toBeNull();
+      expect(run.error?.analyzer).toBe('bundleSize:ai');
+      expect(run.error?.message).toContain('400 Bad Request');
+      expect(run.aiInsights).toBeUndefined();
+    });
+
+    it('local package-fetch errors are not overwritten by an AI error', async () => {
+      const goodName = faker.internet.domainWord();
+      const badName = faker.internet.domainWord();
+      mockFetch.mockImplementation((n: string) => {
+        if (n === badName) return Promise.reject(new Error('fetch failed'));
+        return Promise.resolve(bundlephobiaResult(n, semver(), LIGHT_GZIP));
+      });
+
+      const failingAiService = {
+        analyzeBundleSize: vi.fn().mockRejectedValue(new Error('AI down')),
+      } as unknown as AIInsightsService;
+
+      const { result, error } = await new BundleSizeAnalyzer(
+        makeDeps(goodName, badName),
+        failingAiService,
+      ).analyze(OPTIONS);
+
+      // Local result is intact
+      expect(unwrap(result).packages.find((p) => p.name === goodName)).toBeDefined();
+      // AI error replaces the per-package error in the error field (last write wins)
+      expect(error?.analyzer).toBe('bundleSize:ai');
     });
   });
 });

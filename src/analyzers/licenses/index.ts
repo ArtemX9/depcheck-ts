@@ -101,19 +101,6 @@ export class LicenseAnalyzer implements Analyzer<LicenseReport, LicenseInsight> 
                     conflict,
                 });
             }));
-
-            const conflicts = packages.filter((p) => p.conflict);
-            const licenseReport: LicenseReport = { packages, conflicts };
-
-            const aiInsights = this.aiService
-                ? await this.aiService.analyzeLicenses(licenseReport)
-                : undefined;
-
-            return {
-                result: licenseReport,
-                aiInsights,
-                error: null,
-            };
         } catch (err: unknown) {
             return {
                 result: null,
@@ -123,5 +110,24 @@ export class LicenseAnalyzer implements Analyzer<LicenseReport, LicenseInsight> 
                 },
             };
         }
+
+        const conflicts = packages.filter((p) => p.conflict);
+        const licenseReport: LicenseReport = { packages, conflicts };
+
+        let aiInsights: LicenseInsight | undefined;
+        let aiError: AnalyzerError | null = null;
+        if (this.aiService) {
+            try {
+                aiInsights = await this.aiService.analyzeLicenses(licenseReport);
+            } catch (err: unknown) {
+                aiError = { analyzer: `${this.title}:ai`, message: String(err) };
+            }
+        }
+
+        return {
+            result: licenseReport,
+            aiInsights,
+            error: aiError,
+        };
     }
 }

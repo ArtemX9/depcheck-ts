@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { faker } from '@faker-js/faker';
 import type { AnalyzerOptions, DependencyMap } from '../../../src/types';
+import type { AIInsightsService } from '../../../src/ai/service';
 
 // ---------------------------------------------------------------------------
 // Mock node:fs/promises so we never touch the real filesystem.
@@ -682,6 +683,46 @@ describe('unused', () => {
 
       const hasSpaceSpecifier = result.missingFromPackageJson.some((s) => s.includes(' '));
       expect(hasSpaceSpecifier).toBe(false);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // AI service isolation
+  // -------------------------------------------------------------------------
+
+  describe('AI service isolation', () => {
+    it('returns local results even when AI service throws', async () => {
+      setupSingleDir('/fake/project', ['index.ts']);
+      mockReadFile.mockResolvedValue("import lodash from 'lodash';\n");
+
+      const failingAiService = {
+        analyzeUnused: vi.fn().mockRejectedValue(new Error('Grok API error: 400 Bad Request')),
+      } as unknown as AIInsightsService;
+
+      const analyzer = new UnusedAnalyzer(deps('lodash', 'axios'), failingAiService);
+      const run = await analyzer.analyze(makeOptions());
+
+      expect(run.result).not.toBeNull();
+      expect(run.result?.unused).toContain('axios');
+      expect(run.result?.unused).not.toContain('lodash');
+      expect(run.error).not.toBeNull();
+      expect(run.error?.analyzer).toBe('unused:ai');
+      expect(run.error?.message).toContain('400 Bad Request');
+      expect(run.aiInsights).toBeUndefined();
+    });
+
+    it('preserves unused detection results when AI service throws', async () => {
+      setupSingleDir('/fake/project', ['index.ts']);
+      mockReadFile.mockResolvedValue('');
+
+      const failingAiService = {
+        analyzeUnused: vi.fn().mockRejectedValue(new Error('network failure')),
+      } as unknown as AIInsightsService;
+
+      const { result, error } = await new UnusedAnalyzer(deps('lodash'), failingAiService).analyze(makeOptions());
+
+      expect(result?.unused).toContain('lodash');
+      expect(error?.analyzer).toBe('unused:ai');
     });
   });
 

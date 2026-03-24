@@ -61,7 +61,14 @@ export class GrokProvider implements LLMProvider {
     });
 
     if (!response.ok) {
-      throw new Error(`Grok API error: ${String(response.status)} ${response.statusText}`);
+      let detail = '';
+      try {
+        const body: unknown = await response.json();
+        detail = ` — ${JSON.stringify(body)}`;
+      } catch {
+        // body unreadable — omit detail
+      }
+      throw new Error(`Grok API error: ${String(response.status)} ${response.statusText}${detail}`);
     }
 
     const body: unknown = await response.json();

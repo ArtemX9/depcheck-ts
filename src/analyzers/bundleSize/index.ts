@@ -76,24 +76,6 @@ export class BundleSizeAnalyzer implements Analyzer<BundleSizeReport, BundleSize
                     });
                 }
             }));
-
-            const totalGzip = packages.reduce((sum, p) => sum + p.gzip, 0);
-            const bundleSizeReport: BundleSizeReport = { packages, totalGzip };
-
-            const aiInsights = this.aiService
-                ? await this.aiService.analyzeBundleSize(bundleSizeReport)
-                : undefined;
-
-            return {
-                result: bundleSizeReport,
-                aiInsights,
-                error: errors.length > 0
-                    ? {
-                        analyzer: this.title,
-                        message: errors.map((e) => `${e.name}: ${e.message};`).join('\n'),
-                    }
-                    : null,
-            };
         } catch (err: unknown) {
             return {
                 result: null,
@@ -103,5 +85,30 @@ export class BundleSizeAnalyzer implements Analyzer<BundleSizeReport, BundleSize
                 },
             };
         }
+
+        const totalGzip = packages.reduce((sum, p) => sum + p.gzip, 0);
+        const bundleSizeReport: BundleSizeReport = { packages, totalGzip };
+
+        let aiInsights: BundleSizeInsight | undefined;
+        let aiError: AnalyzerError | null = errors.length > 0
+            ? {
+                analyzer: this.title,
+                message: errors.map((e) => `${e.name}: ${e.message};`).join('\n'),
+            }
+            : null;
+
+        if (this.aiService) {
+            try {
+                aiInsights = await this.aiService.analyzeBundleSize(bundleSizeReport);
+            } catch (err: unknown) {
+                aiError = { analyzer: `${this.title}:ai`, message: String(err) };
+            }
+        }
+
+        return {
+            result: bundleSizeReport,
+            aiInsights,
+            error: aiError,
+        };
     }
 }

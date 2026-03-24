@@ -141,6 +141,7 @@ export class UnusedAnalyzer implements Analyzer<UnusedReport, UnusedInsight> {
                 error: null,
             };
         }
+        let unusedReport: UnusedReport;
         try {
             const [files, pathAliases] = await Promise.all([
                 collectSourceFiles(options.projectPath),
@@ -157,17 +158,7 @@ export class UnusedAnalyzer implements Analyzer<UnusedReport, UnusedInsight> {
                 .filter((name) => !this.deps[name] && !isImplicitlyUsed(name))
                 .sort();
 
-            const unusedReport: UnusedReport = { unused, missingFromPackageJson };
-
-            const aiInsights = this.aiService
-                ? await this.aiService.analyzeUnused(unusedReport)
-                : undefined;
-
-            return {
-                result: unusedReport,
-                aiInsights,
-                error: null,
-            };
+            unusedReport = { unused, missingFromPackageJson };
         } catch (err: unknown) {
             return {
                 result: null,
@@ -177,5 +168,21 @@ export class UnusedAnalyzer implements Analyzer<UnusedReport, UnusedInsight> {
                 },
             };
         }
+
+        let aiInsights: UnusedInsight | undefined;
+        let aiError: AnalyzerError | null = null;
+        if (this.aiService) {
+            try {
+                aiInsights = await this.aiService.analyzeUnused(unusedReport);
+            } catch (err: unknown) {
+                aiError = { analyzer: `${this.title}:ai`, message: String(err) };
+            }
+        }
+
+        return {
+            result: unusedReport,
+            aiInsights,
+            error: aiError,
+        };
     }
 }

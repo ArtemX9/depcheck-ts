@@ -10,7 +10,7 @@ import { faker } from '@faker-js/faker';
 const { mockFetch } = vi.hoisted(() => ({ mockFetch: vi.fn() }));
 vi.mock('undici', () => ({ fetch: mockFetch }));
 
-import { GrokProvider } from '../../../src/ai/providers/grok';
+import { GrokProvider } from '../../../src/ai/providers/grok/index';
 import type {
   OutdatedPackage,
   BundleSizeReport,
@@ -166,6 +166,28 @@ describe('GrokProvider.analyzeOutdated()', () => {
     });
 
     await expect(provider.analyzeOutdated([])).rejects.toThrow();
+  });
+
+  it('includes the response body in the error message on a 400', async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 400,
+      statusText: 'Bad Request',
+      json: () => Promise.resolve({ error: { message: 'model not found' } }),
+    });
+
+    await expect(provider.analyzeOutdated([])).rejects.toThrow('model not found');
+  });
+
+  it('includes only status and statusText when response body is not JSON', async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 502,
+      statusText: 'Bad Gateway',
+      json: () => Promise.reject(new Error('not JSON')),
+    });
+
+    await expect(provider.analyzeOutdated([])).rejects.toThrow('Grok API error: 502 Bad Gateway');
   });
 });
 
