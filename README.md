@@ -42,7 +42,7 @@ depcheck-ts --ai-provider grok --ai-key <XAI_API_KEY> --ai-model grok-3-mini-fas
 
 ## Configuration File
 
-Create a `.depcheck-ts` file in your project root (JSON) to avoid repeating flags:
+Create a `.depcheck-ts.json` file in your project root to avoid repeating flags:
 
 ```json
 {
@@ -58,6 +58,30 @@ Create a `.depcheck-ts` file in your project root (JSON) to avoid repeating flag
 ```
 
 CLI flags take precedence over the config file when both are present.
+
+## Environment Variables
+
+Environment variables are the lowest-priority configuration tier, sitting below CLI flags and the config file. They are useful in CI/CD pipelines where storing API keys in files is not desirable.
+
+**Priority order (highest wins): CLI flags > `.depcheck-ts.json` > env vars > defaults**
+
+| Variable | Maps to | Notes |
+|---|---|---|
+| `DEPCHECK_PATH` | `--path` | Project root path |
+| `DEPCHECK_FORMAT` | `--format` | `terminal`, `json`, or `markdown` |
+| `DEPCHECK_CI` | `--ci` | `true` or `1` enables CI mode |
+| `DEPCHECK_AI_PROVIDER` | `--ai-provider` | e.g. `grok` |
+| `DEPCHECK_AI_KEY` | `--ai-key` | API key — recommended approach for secrets |
+| `DEPCHECK_AI_MODEL` | `--ai-model` | e.g. `grok-3-mini-fast` |
+
+Example — set the AI key in the environment rather than on the command line:
+
+```bash
+export DEPCHECK_AI_PROVIDER=grok
+export DEPCHECK_AI_KEY=xai-...
+export DEPCHECK_AI_MODEL=grok-3-mini-fast
+depcheck-ts
+```
 
 ## Programmatic API
 

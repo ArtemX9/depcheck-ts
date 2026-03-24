@@ -59,7 +59,7 @@ src/
 ├── utils/
 │   ├── registry.ts     # npm registry HTTP client. GET https://registry.npmjs.org/{pkg}
 │   ├── bundlephobia.ts # bundlephobia HTTP client. GET https://bundlephobia.com/api/size?package={pkg}@{ver}
-│   ├── config.ts       # loadConfig() — reads .depcheck-ts JSON from project root; validates shape.
+│   ├── config.ts       # loadConfig() — reads .depcheck-ts.json from project root; validates shape.
 │   ├── parser.ts       # Reads package.json + lock files. Resolves actual installed versions.
 │   └── packageName.ts  # Extracts package name from import path (handles scoped @org/pkg).
 └── types.ts            # All shared interfaces: FullReport, OutdatedPackage, BundleSizeEntry, AIOptions, etc.
@@ -124,9 +124,21 @@ interface AIInsights {
 
 When adding or modifying analyzer return types, always update `types.ts` first, then fix compiler errors. Types drive the design.
 
+## Configuration sources
+
+Configuration is resolved from three tiers in priority order (highest wins):
+
+1. **CLI flags** — always win (`--path`, `--format`, `--ci`, `--ai-provider`, `--ai-key`, `--ai-model`)
+2. **`.depcheck-ts.json`** — config file in the project root (or the `--path` directory)
+3. **Environment variables** — lowest priority; useful in CI/CD to avoid storing secrets in files
+
+Supported env vars: `DEPCHECK_PATH`, `DEPCHECK_FORMAT`, `DEPCHECK_CI` (`true`/`1`), `DEPCHECK_AI_PROVIDER`, `DEPCHECK_AI_KEY`, `DEPCHECK_AI_MODEL`.
+
+The merge logic lives in `cli.ts` alongside the other option resolution. `config.ts` stays focused on file loading only.
+
 ## Config file
 
-`.depcheck-ts` is a JSON file read from the project root (or from the `--path` directory). All fields are optional. CLI flags override config file values.
+`.depcheck-ts.json` is a JSON file read from the project root (or from the `--path` directory). All fields are optional. CLI flags override config file values.
 
 ```json
 {

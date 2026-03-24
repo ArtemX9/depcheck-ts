@@ -453,6 +453,102 @@ describe('CLI – AI flags', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Environment variables
+// ---------------------------------------------------------------------------
+
+describe('CLI – environment variables', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('uses DEPCHECK_AI_KEY when no --ai-key flag is given', async () => {
+    vi.stubEnv('DEPCHECK_AI_PROVIDER', 'grok');
+    vi.stubEnv('DEPCHECK_AI_KEY', 'env-key-123');
+    vi.stubEnv('DEPCHECK_AI_MODEL', 'grok-3-mini-fast');
+
+    await run(argv());
+
+    expect(mockAnalyze).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ apiKey: 'env-key-123' }),
+    );
+  });
+
+  it('uses DEPCHECK_AI_PROVIDER + DEPCHECK_AI_KEY + DEPCHECK_AI_MODEL together to produce valid aiOptions', async () => {
+    const envKey = faker.string.alphanumeric(32);
+    vi.stubEnv('DEPCHECK_AI_PROVIDER', 'grok');
+    vi.stubEnv('DEPCHECK_AI_KEY', envKey);
+    vi.stubEnv('DEPCHECK_AI_MODEL', 'grok-3-mini-fast');
+
+    await run(argv());
+
+    expect(mockAnalyze).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ provider: 'grok', apiKey: envKey, model: 'grok-3-mini-fast' }),
+    );
+  });
+
+  it('CLI --ai-key overrides DEPCHECK_AI_KEY', async () => {
+    const cliKey = faker.string.alphanumeric(32);
+    vi.stubEnv('DEPCHECK_AI_PROVIDER', 'grok');
+    vi.stubEnv('DEPCHECK_AI_KEY', 'env-key-should-be-ignored');
+    vi.stubEnv('DEPCHECK_AI_MODEL', 'grok-3-mini-fast');
+
+    await run(argv('--ai-key', cliKey));
+
+    expect(mockAnalyze).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ apiKey: cliKey }),
+    );
+  });
+
+  it('DEPCHECK_FORMAT sets the output format', async () => {
+    vi.stubEnv('DEPCHECK_FORMAT', OutputFormat.MARKDOWN);
+    const stdoutWrite = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+    await run(argv());
+
+    const written = stdoutWrite.mock.calls[0]?.[0] as string;
+    expect(written).toContain('## Dependency Health Report');
+    stdoutWrite.mockRestore();
+  });
+
+  it('DEPCHECK_CI=true triggers CI mode behaviour', async () => {
+    vi.stubEnv('DEPCHECK_CI', 'true');
+    mockAnalyze.mockResolvedValue(makeReport({ score: 50 }));
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+
+    await run(argv());
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    exitSpy.mockRestore();
+  });
+
+  it('DEPCHECK_CI=1 triggers CI mode behaviour', async () => {
+    vi.stubEnv('DEPCHECK_CI', '1');
+    mockAnalyze.mockResolvedValue(makeReport({ score: 50 }));
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+
+    await run(argv());
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    exitSpy.mockRestore();
+  });
+
+  it('DEPCHECK_PATH sets the project path when --path is omitted', async () => {
+    const envPath = faker.system.directoryPath();
+    vi.stubEnv('DEPCHECK_PATH', envPath);
+
+    await run(argv());
+
+    expect(mockAnalyze).toHaveBeenCalledWith(
+      expect.objectContaining({ projectPath: envPath }),
+      undefined,
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Integration: config ci flag
 // ---------------------------------------------------------------------------
 

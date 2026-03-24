@@ -38,12 +38,12 @@ function isDepcheckConfig(val: unknown): val is DepcheckConfig {
 }
 
 export async function loadConfig(dir: string = process.cwd()): Promise<DepcheckConfig> {
-  const filePath = join(dir, '.depcheck-ts');
+  const filePath = join(dir, '.depcheck-ts.json');
   try {
     const raw = await readFile(filePath, 'utf-8');
     const parsed: unknown = JSON.parse(raw);
     if (!isDepcheckConfig(parsed)) {
-      throw new Error(`Invalid .depcheck-ts config shape in ${filePath}`);
+      throw new Error(`Invalid .depcheck-ts.json config shape in ${filePath}`);
     }
     return parsed;
   } catch (err: unknown) {

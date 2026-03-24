@@ -25,7 +25,7 @@ beforeEach(() => {
 
 describe('loadConfig()', () => {
   describe('happy path', () => {
-    it('returns an empty object when .depcheck-ts does not exist (ENOENT)', async () => {
+    it('returns an empty object when .depcheck-ts.json does not exist (ENOENT)', async () => {
       const err = Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
       mockReadFile.mockRejectedValue(err);
 
@@ -100,14 +100,14 @@ describe('loadConfig()', () => {
       expect(config).toEqual({});
     });
 
-    it('reads the file from the correct path (.depcheck-ts in given dir)', async () => {
+    it('reads the file from the correct path (.depcheck-ts.json in given dir)', async () => {
       mockReadFile.mockResolvedValue('{}');
       const dir = '/some/project';
 
       await loadConfig(dir);
 
       expect(mockReadFile).toHaveBeenCalledWith(
-        expect.stringContaining('.depcheck-ts') as string,
+        expect.stringContaining('.depcheck-ts.json') as string,
         'utf-8',
       );
     });

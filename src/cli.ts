@@ -42,15 +42,15 @@ function buildProgram(): Command {
       const cliPath = opts.path;
       const config = await loadConfig(cliPath ?? process.cwd());
 
-      // Merge: CLI flags win over config file
-      const effectivePath = cliPath ?? config.path ?? process.cwd();
-      const effectiveFormat = (opts.format ?? config.format ?? OutputFormat.TERMINAL) as OutputFormat;
-      const effectiveCi = opts.ci || (config.ci ?? false);
+      // Merge: CLI flags > config file > env vars > defaults
+      const effectivePath = cliPath ?? config.path ?? process.env['DEPCHECK_PATH'] ?? process.cwd();
+      const effectiveFormat = (opts.format ?? config.format ?? process.env['DEPCHECK_FORMAT'] ?? OutputFormat.TERMINAL) as OutputFormat;
+      const effectiveCi = opts.ci || (config.ci ?? false) || process.env['DEPCHECK_CI'] === 'true' || process.env['DEPCHECK_CI'] === '1';
 
-      // AI options: CLI flags override config file
-      const aiProviderRaw = opts.aiProvider ?? config.ai?.provider;
-      const aiKey = opts.aiKey ?? config.ai?.apiKey;
-      const aiModel = opts.aiModel ?? config.ai?.model;
+      // AI options: CLI flags > config file > env vars
+      const aiProviderRaw = opts.aiProvider ?? config.ai?.provider ?? process.env['DEPCHECK_AI_PROVIDER'];
+      const aiKey = opts.aiKey ?? config.ai?.apiKey ?? process.env['DEPCHECK_AI_KEY'];
+      const aiModel = opts.aiModel ?? config.ai?.model ?? process.env['DEPCHECK_AI_MODEL'];
 
       let aiOptions: AIOptions | undefined;
       if (aiProviderRaw !== undefined && aiKey !== undefined && aiModel !== undefined) {
