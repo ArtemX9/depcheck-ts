@@ -1,6 +1,6 @@
 {
   "name": "depcheck-ts",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "TypeScript CLI tool and npm library that analyzes a project's dependencies for outdated packages, bundle size impact, license conflicts, and unused imports.",
   "type": "module",
   "scripts": {
