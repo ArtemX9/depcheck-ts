@@ -1,6 +1,6 @@
 # depcheck-ts
 
-![Node.js](https://img.shields.io/badge/Node.js_20+-339933?logo=node.js&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js_22+-339933?logo=node.js&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
 [![npm](https://img.shields.io/badge/npm-CB3837?logo=npm&logoColor=white)](https://www.npmjs.com/package/depcheck-ts)
 [![CI](https://github.com/ArtemX9/depcheck-ts/actions/workflows/ci.yml/badge.svg)](https://github.com/ArtemX9/depcheck-ts/actions/workflows/ci.yml)
