@@ -76,7 +76,7 @@ AI flow (when `--ai-*` flags or `ai` config block are present): each analyzer re
 - Analyzers are pure functions: `(deps: DependencyMap, options: AnalyzerOptions) => Promise<AnalyzerResult>`. No side effects, no direct console output.
 - Reporters are also pure: `(report: FullReport) => string`. The CLI is the only place that writes to stdout.
 - Error handling: individual analyzer failures must never crash the tool. Wrap each analyzer in try/catch, include partial results + error details in the report. A failed bundlephobia call should not prevent the outdated check from reporting.
-- Use `undici` (built into Node 20+) for HTTP requests, not `node-fetch` or `axios`.
+- Use the native global `fetch` for HTTP requests (available since Node 18, stable in Node 20+). No import needed — no external HTTP library required.
 - Prefer `node:` protocol for built-in imports: `import { readFile } from 'node:fs/promises'`.
 - AI response validation uses Zod schemas (`src/ai/providers/grok/schemas.ts`). Define schemas as `z.object(...)`, export `z.toJSONSchema(Schema)` for the API request, and use `Schema.parse(result)` for validation. Never write manual type guards for AI responses.
 

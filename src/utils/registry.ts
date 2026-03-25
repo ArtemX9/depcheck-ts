@@ -1,5 +1,3 @@
-import { fetch } from 'undici';
-
 export interface RegistryPackageInfo {
   name: string;
   'dist-tags': { latest: string };

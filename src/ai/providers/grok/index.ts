@@ -1,4 +1,3 @@
-import { fetch } from 'undici';
 import {type LLMProvider, Role} from '../../types';
 import type {
   OutdatedPackage,

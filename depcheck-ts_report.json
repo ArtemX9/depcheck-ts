@@ -1,0 +1,235 @@
+{
+  "outdated": [
+    {
+      "name": "chalk",
+      "current": "^4.1.2",
+      "latest": "5.6.2",
+      "type": "major",
+      "abandoned": false
+    },
+    {
+      "name": "@vitest/coverage-v8",
+      "current": "^4.0.18",
+      "latest": "4.1.1",
+      "type": "minor",
+      "abandoned": false
+    },
+    {
+      "name": "memfs",
+      "current": "^4.56.11",
+      "latest": "4.57.1",
+      "type": "minor",
+      "abandoned": false
+    },
+    {
+      "name": "eslint",
+      "current": "^10.0.3",
+      "latest": "10.1.0",
+      "type": "minor",
+      "abandoned": false
+    },
+    {
+      "name": "@faker-js/faker",
+      "current": "^10.3.0",
+      "latest": "10.4.0",
+      "type": "minor",
+      "abandoned": false
+    },
+    {
+      "name": "vitest",
+      "current": "^4.0.18",
+      "latest": "4.1.1",
+      "type": "minor",
+      "abandoned": false
+    },
+    {
+      "name": "typescript-eslint",
+      "current": "^8.57.0",
+      "latest": "8.57.2",
+      "type": "patch",
+      "abandoned": false
+    },
+    {
+      "name": "@types/node",
+      "current": "^25.4.0",
+      "latest": "25.5.0",
+      "type": "minor",
+      "abandoned": false
+    },
+    {
+      "name": "zod",
+      "current": "^4.0.0",
+      "latest": "4.3.6",
+      "type": "minor",
+      "abandoned": false
+    },
+    {
+      "name": "typescript",
+      "current": "^5.9.3",
+      "latest": "6.0.2",
+      "type": "major",
+      "abandoned": false
+    }
+  ],
+  "bundleSize": {
+    "packages": [
+      {
+        "name": "commander",
+        "version": "14.0.3",
+        "gzip": 11534,
+        "size": 40315,
+        "heavy": false
+      },
+      {
+        "name": "zod",
+        "version": "4.0.0",
+        "gzip": 47389,
+        "size": 241945,
+        "heavy": false
+      },
+      {
+        "name": "cli-table3",
+        "version": "0.6.5",
+        "gzip": 8410,
+        "size": 21125,
+        "heavy": false
+      },
+      {
+        "name": "chalk",
+        "version": "4.1.2",
+        "gzip": 7680,
+        "size": 20037,
+        "heavy": false
+      }
+    ],
+    "totalGzip": 75013
+  },
+  "licenses": {
+    "packages": [
+      {
+        "name": "chalk",
+        "version": "4.1.2",
+        "license": "MIT",
+        "conflict": false
+      },
+      {
+        "name": "commander",
+        "version": "14.0.3",
+        "license": "MIT",
+        "conflict": false
+      },
+      {
+        "name": "zod",
+        "version": "4.3.6",
+        "license": "MIT",
+        "conflict": false
+      },
+      {
+        "name": "@eslint/js",
+        "version": "10.0.1",
+        "license": "MIT",
+        "conflict": false
+      },
+      {
+        "name": "cli-table3",
+        "version": "0.6.5",
+        "license": "MIT",
+        "conflict": false
+      },
+      {
+        "name": "@types/node",
+        "version": "25.4.0",
+        "license": "MIT",
+        "conflict": false
+      },
+      {
+        "name": "@faker-js/faker",
+        "version": "10.3.0",
+        "license": "MIT",
+        "conflict": false
+      },
+      {
+        "name": "@vitest/coverage-v8",
+        "version": "4.0.18",
+        "license": "MIT",
+        "conflict": false
+      },
+      {
+        "name": "eslint",
+        "version": "10.0.3",
+        "license": "MIT",
+        "conflict": false
+      },
+      {
+        "name": "eslint-plugin-n",
+        "version": "17.24.0",
+        "license": "MIT",
+        "conflict": false
+      },
+      {
+        "name": "memfs",
+        "version": "4.56.11",
+        "license": "Apache-2.0",
+        "conflict": false
+      },
+      {
+        "name": "tsup",
+        "version": "8.5.1",
+        "license": "MIT",
+        "conflict": false
+      },
+      {
+        "name": "tsx",
+        "version": "4.21.0",
+        "license": "MIT",
+        "conflict": false
+      },
+      {
+        "name": "typescript",
+        "version": "5.9.3",
+        "license": "Apache-2.0",
+        "conflict": false
+      },
+      {
+        "name": "vitest",
+        "version": "4.0.18",
+        "license": "MIT",
+        "conflict": false
+      },
+      {
+        "name": "typescript-eslint",
+        "version": "8.57.0",
+        "license": "MIT",
+        "conflict": false
+      }
+    ],
+    "conflicts": []
+  },
+  "unused": {
+    "unused": [],
+    "missingFromPackageJson": []
+  },
+  "score": 75.5,
+  "errors": [],
+  "aiInsights": {
+    "outdated": {
+      "summary": "2 major upgrades (chalk 4→5, typescript 5→6) with breaking change risks; 7 minor, 1 patch updates. Good overall health but majors need review.",
+      "priorityPackage": "typescript",
+      "upgradeAdvice": "Upgrade typescript to ^6.0.2 first: review breaking changes (e.g., stricter checks, lib updates) at typescriptlang.org/docs/handbook/release-notes/typescript-6-0.html, update tsconfig, test build/types. Then chalk^5.6.0 (drops Node<16, new API). Use `npx npm-check-updates -u` then `npm install`, test all."
+    },
+    "bundleSize": {
+      "summary": "No heavy packages detected.",
+      "topOffender": "None",
+      "recommendation": "Bundle is already optimized. No changes recommended."
+    },
+    "licenses": {
+      "summary": "All packages use permissive licenses: MIT (14 packages) or Apache-2.0 (2 packages). No copyleft, proprietary, or restrictive licenses present.",
+      "riskLevel": "low",
+      "advice": "Comply with attribution requirements (preserve copyright notices, license texts). Apache-2.0 requires NOTICE file preservation if present. No significant risks for commercial or proprietary use."
+    },
+    "unused": {
+      "summary": "No unused dependencies found.",
+      "cleanupAdvice": "No action required. Your project dependencies are already optimized."
+    }
+  }
+}

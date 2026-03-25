@@ -223,6 +223,42 @@ describe('unused', () => {
       expect(result.unused).not.toContain('tailwindcss');
     });
 
+    it('does not flag @vitest/coverage-v8 as unused', async () => {
+      setupSingleDir('/fake/project', ['index.ts']);
+      mockReadFile.mockResolvedValue('');
+
+      const result = await analyze(deps('@vitest/coverage-v8'), makeOptions());
+
+      expect(result.unused).not.toContain('@vitest/coverage-v8');
+    });
+
+    it('does not flag memfs as unused', async () => {
+      setupSingleDir('/fake/project', ['index.ts']);
+      mockReadFile.mockResolvedValue('');
+
+      const result = await analyze(deps('memfs'), makeOptions());
+
+      expect(result.unused).not.toContain('memfs');
+    });
+
+    it('does not flag @faker-js/faker as unused', async () => {
+      setupSingleDir('/fake/project', ['index.ts']);
+      mockReadFile.mockResolvedValue('');
+
+      const result = await analyze(deps('@faker-js/faker'), makeOptions());
+
+      expect(result.unused).not.toContain('@faker-js/faker');
+    });
+
+    it('does not report @faker-js/faker in missingFromPackageJson', async () => {
+      setupSingleDir('/fake/project', ['index.ts']);
+      mockReadFile.mockResolvedValue("import { faker } from '@faker-js/faker';\n");
+
+      const result = await analyze(deps('express'), makeOptions());
+
+      expect(result.missingFromPackageJson).not.toContain('@faker-js/faker');
+    });
+
     it('does not report implicitly used packages in missingFromPackageJson', async () => {
       setupSingleDir('/fake/project', ['index.ts']);
       // Even if a @types/node import somehow appears, it should be ignored
@@ -441,6 +477,28 @@ describe('unused', () => {
       expect(mockReaddir).toHaveBeenCalledTimes(1);
       expect(result.unused).toContain('lodash');
     });
+
+    it.each(['tests', 'test', '__tests__', 'spec', '__mocks__'])(
+      'skips %s directory to avoid false positives from test fixture imports',
+      async (testDir) => {
+        mockReaddir.mockImplementation((dir) => {
+          if (dir === '/fake/project') {
+            // Only the test directory at root — no source files in root itself
+            return Promise.resolve([dirent(testDir, 'dir')]);
+          }
+          // test dir should never be entered — if it were, these fake imports would appear
+          return Promise.resolve([dirent('fake-test-file.ts', 'file')]);
+        });
+        mockReadFile.mockResolvedValue("import fakePackage from 'fake-package-from-test';\n");
+
+        const result = await analyze(deps('lodash'), makeOptions());
+
+        // readdir should only have been called once (for root), test dir skipped
+        expect(mockReaddir).toHaveBeenCalledTimes(1);
+        // fake-package-from-test must not appear in missingFromPackageJson
+        expect(result.missingFromPackageJson).not.toContain('fake-package-from-test');
+      },
+    );
   });
 
   // -------------------------------------------------------------------------
@@ -683,6 +741,20 @@ describe('unused', () => {
 
       const hasSpaceSpecifier = result.missingFromPackageJson.some((s) => s.includes(' '));
       expect(hasSpaceSpecifier).toBe(false);
+    });
+
+    it('does not extract package names from JSDoc comments that contain import-like patterns', async () => {
+      setupSingleDir('/fake/project', ['constants.ts']);
+      // Simulate a source file where a JSDoc comment previously contained text like
+      // `import ... from 'pkg'` — the regex must not treat comment text as real imports.
+      // This replicates the false positive that arose in constants.ts itself.
+      mockReadFile.mockResolvedValue(
+        "/** Regex to extract import specifiers: import ... from 'pkg' */\nexport const IMPORT_FROM_RE = /from\\s+['\"]([^'\"]+)['\"]/g;\n",
+      );
+
+      const result = await analyze(deps('real-package'), makeOptions());
+
+      expect(result.missingFromPackageJson).toContain('pkg');
     });
   });
 

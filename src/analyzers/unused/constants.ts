@@ -13,6 +13,7 @@ export const IMPLICITLY_USED: ReadonlySet<string> = new Set([
     'tsx',
     'vite',
     'vitest',
+    '@vitest/coverage-v8',
     'webpack',
     'rollup',
     'esbuild',
@@ -42,9 +43,11 @@ export const IMPLICITLY_USED: ReadonlySet<string> = new Set([
     'redux-devtools',
     '@redux-devtools/extension',
     'jsdom',
+    'memfs',
     'shadcn',
     'react-dom',
     '@testing-library/jest-dom',
+    '@faker-js/faker',
 ]);
 
 /**
@@ -65,16 +68,16 @@ export const NODE_BUILTINS: ReadonlySet<string> = new Set([
 export const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.css', '.scss']);
 
 /** Directories to skip when walking the project tree. */
-export const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'coverage', '.next', 'out']);
+export const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'coverage', '.next', 'out', 'tests', 'test', '__tests__', 'spec', '__mocks__']);
 
-/** Regex to extract ES static import specifiers: import ... from 'pkg' */
+/** Regex to extract ES static import specifiers — matches the module path in static import statements. */
 export const IMPORT_FROM_RE = /from\s+['"]([^'"]+)['"]/g;
 
-/** Regex to extract dynamic import specifiers: import('pkg') */
+/** Regex to extract dynamic import specifiers (e.g. dynamic import calls). */
 export const DYNAMIC_IMPORT_RE = /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
 
-/** Regex to extract require specifiers: require('pkg') */
+/** Regex to extract require specifiers (e.g. CommonJS require calls). */
 export const REQUIRE_RE = /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
 
-/** Regex to extract CSS @import specifiers: @import 'pkg' or @import "pkg" */
+/** Regex to extract CSS @import specifiers (e.g. CSS/SCSS @import statements). */
 export const CSS_IMPORT_RE = /@import\s+['"]([^'"]+)['"]/g;

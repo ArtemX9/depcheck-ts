@@ -9,14 +9,14 @@ describe('isImplicitlyUsed', () => {
   describe('exact static set members', () => {
     it.each([
       'typescript', 'eslint', 'prettier', 'tailwindcss', 'husky', 'lint-staged',
-      'tsup', 'tsx', 'vite', 'vitest', 'webpack', 'rollup', 'esbuild',
+      'tsup', 'tsx', 'vite', 'vitest', '@vitest/coverage-v8', 'webpack', 'rollup', 'esbuild',
       'babel', '@babel/core', '@babel/cli', '@babel/preset-env', '@babel/preset-typescript',
       'ts-node', 'ts-jest', 'jest', 'mocha', 'jasmine',
       'nodemon', 'concurrently', 'cross-env', 'rimraf', 'npm-run-all', 'dotenv-cli',
       'commitizen', 'semantic-release', 'standard-version',
       'patch-package', 'postinstall-postinstall', 'react-scripts',
       'storybook', 'redux-devtools', '@redux-devtools/extension',
-      'jsdom', 'shadcn', 'react-dom', '@testing-library/jest-dom',
+      'jsdom', 'memfs', 'shadcn', 'react-dom', '@testing-library/jest-dom',
     ])('%s is implicitly used', (pkg) => {
       expect(isImplicitlyUsed(pkg)).toBe(true);
     });

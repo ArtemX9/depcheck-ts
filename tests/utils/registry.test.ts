@@ -1,15 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { faker } from '@faker-js/faker';
-import type { Response } from 'undici';
 
-vi.mock('undici', () => ({
-  fetch: vi.fn(),
-}));
+const mockFetch = vi.fn();
+vi.stubGlobal('fetch', mockFetch);
 
-import { fetch } from 'undici';
 import { fetchPackageInfo } from '../../src/utils/registry';
-
-const mockFetch = vi.mocked(fetch);
 
 function makeResponse(body: unknown, ok = true, status = 200): Response {
   return {

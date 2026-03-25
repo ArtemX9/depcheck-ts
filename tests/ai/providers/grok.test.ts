@@ -2,13 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { faker } from '@faker-js/faker';
 
 // ---------------------------------------------------------------------------
-// Mock undici fetch before importing GrokProvider.
-// vi.mock factories are hoisted to the top of the file so we use vi.hoisted()
-// to ensure the mock reference is available inside the factory.
+// Mock the native global fetch before importing GrokProvider.
+// vi.stubGlobal replaces globalThis.fetch so the provider picks it up.
 // ---------------------------------------------------------------------------
 
-const { mockFetch } = vi.hoisted(() => ({ mockFetch: vi.fn() }));
-vi.mock('undici', () => ({ fetch: mockFetch }));
+const mockFetch = vi.fn();
+vi.stubGlobal('fetch', mockFetch);
 
 import { GrokProvider } from '../../../src/ai/providers/grok/index';
 import type {

@@ -1,5 +1,3 @@
-import { fetch } from 'undici';
-
 export interface BundlephobiaResult {
   name: string;
   version: string;

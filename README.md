@@ -41,6 +41,13 @@ depcheck-ts --ci
 depcheck-ts --ai-provider grok --ai-key <XAI_API_KEY> --ai-model grok-3-mini-fast
 ```
 
+## Example Output
+
+Real reports generated against this repository:
+
+- [depcheck-ts_report.md](https://github.com/ArtemX9/depcheck-ts/blob/main/depcheck-ts_report.md) — Markdown format (suitable for PR comments)
+- [depcheck-ts_report.json](https://github.com/ArtemX9/depcheck-ts/blob/main/depcheck-ts_report.json) — JSON format (machine-readable / programmatic use)
+
 ## Configuration File
 
 Create a `.depcheck-ts.json` file in your project root to avoid repeating flags:
