@@ -54,8 +54,9 @@ function argv(...extra: string[]): string[] {
 let stdoutSpy: ReturnType<typeof vi.spyOn>;
 let stderrSpy: ReturnType<typeof vi.spyOn>;
 
-const AI_ENV_VARS = ['DEPCHECK_AI_PROVIDER', 'DEPCHECK_AI_KEY', 'DEPCHECK_AI_MODEL'] as const;
-let savedEnv: Partial<Record<string, string>> = {};
+let savedAiProvider: string | undefined;
+let savedAiKey: string | undefined;
+let savedAiModel: string | undefined;
 
 beforeEach(() => {
   mockAnalyze.mockReset();
@@ -65,24 +66,21 @@ beforeEach(() => {
   stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
   stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
   // Save and clear AI env vars so tests are not affected by the developer's local env
-  for (const key of AI_ENV_VARS) {
-    savedEnv[key] = process.env[key];
-    delete process.env[key];
-  }
+  savedAiProvider = process.env['DEPCHECK_AI_PROVIDER'];
+  savedAiKey = process.env['DEPCHECK_AI_KEY'];
+  savedAiModel = process.env['DEPCHECK_AI_MODEL'];
+  delete process.env['DEPCHECK_AI_PROVIDER'];
+  delete process.env['DEPCHECK_AI_KEY'];
+  delete process.env['DEPCHECK_AI_MODEL'];
 });
 
 afterEach(() => {
   stdoutSpy.mockRestore();
   stderrSpy.mockRestore();
   // Restore AI env vars
-  for (const key of AI_ENV_VARS) {
-    if (savedEnv[key] === undefined) {
-      delete process.env[key];
-    } else {
-      process.env[key] = savedEnv[key];
-    }
-  }
-  savedEnv = {};
+  if (savedAiProvider === undefined) { delete process.env['DEPCHECK_AI_PROVIDER']; } else { process.env['DEPCHECK_AI_PROVIDER'] = savedAiProvider; }
+  if (savedAiKey === undefined) { delete process.env['DEPCHECK_AI_KEY']; } else { process.env['DEPCHECK_AI_KEY'] = savedAiKey; }
+  if (savedAiModel === undefined) { delete process.env['DEPCHECK_AI_MODEL']; } else { process.env['DEPCHECK_AI_MODEL'] = savedAiModel; }
 });
 
 // ---------------------------------------------------------------------------
