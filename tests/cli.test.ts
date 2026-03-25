@@ -54,6 +54,9 @@ function argv(...extra: string[]): string[] {
 let stdoutSpy: ReturnType<typeof vi.spyOn>;
 let stderrSpy: ReturnType<typeof vi.spyOn>;
 
+const AI_ENV_VARS = ['DEPCHECK_AI_PROVIDER', 'DEPCHECK_AI_KEY', 'DEPCHECK_AI_MODEL'] as const;
+let savedEnv: Partial<Record<string, string>> = {};
+
 beforeEach(() => {
   mockAnalyze.mockReset();
   mockLoadConfig.mockReset();
@@ -61,11 +64,25 @@ beforeEach(() => {
   mockLoadConfig.mockResolvedValue({});
   stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
   stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+  // Save and clear AI env vars so tests are not affected by the developer's local env
+  for (const key of AI_ENV_VARS) {
+    savedEnv[key] = process.env[key];
+    delete process.env[key];
+  }
 });
 
 afterEach(() => {
   stdoutSpy.mockRestore();
   stderrSpy.mockRestore();
+  // Restore AI env vars
+  for (const key of AI_ENV_VARS) {
+    if (savedEnv[key] === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = savedEnv[key];
+    }
+  }
+  savedEnv = {};
 });
 
 // ---------------------------------------------------------------------------
