@@ -77,6 +77,7 @@ export interface AnalyzerError {
 export enum AIProviderName {
   GROK = 'grok',
   OPEN_AI = 'openai',
+  GEMINI = 'gemini',
 };
 
 export interface AIOptions {

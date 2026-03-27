@@ -5,6 +5,8 @@ import type {
     UnusedReport,
 } from '../types';
 
+export const SYSTEM_OUTDATED_PROMPT = 'You are a dependency health expert. Analyze the outdated npm packages and provide actionable upgrade advice. Be concise.';
+
 export function buildOutdatedPrompt(packages: OutdatedPackage[]): string {
     if (packages.length === 0) return 'No outdated packages found.';
     return packages
@@ -15,6 +17,7 @@ export function buildOutdatedPrompt(packages: OutdatedPackage[]): string {
         .join('\n');
 }
 
+export const SYSTEM_BUNDLE_SIZE_PROMPT = 'You are a bundle size optimization expert. Analyze heavy npm packages and recommend lighter alternatives. Be concise.';
 export function buildBundleSizePrompt(report: BundleSizeReport): string {
     const heavy = report.packages.filter((p) => p.heavy);
     if (heavy.length === 0) return 'No heavy packages detected.';
@@ -26,6 +29,7 @@ export function buildBundleSizePrompt(report: BundleSizeReport): string {
     return lines.join('\n');
 }
 
+export const SYSTEM_LICENSE_PROMPT = 'You are a software license compliance expert. Analyze npm package licenses and identify risks. Be concise.';
 export function buildLicensePrompt(report: LicenseReport): string {
     if (report.packages.length === 0) return 'No license information available.';
     const lines = report.packages.map(
@@ -37,6 +41,7 @@ export function buildLicensePrompt(report: LicenseReport): string {
     return lines.join('\n');
 }
 
+export const SYSTEM_UNUSED_PROMPT = 'You are a dependency cleanup expert. Analyze unused npm packages and provide cleanup advice. Be concise.';
 export function buildUnusedPrompt(report: UnusedReport): string {
     const parts: string[] = [];
     if (report.unused.length > 0) {

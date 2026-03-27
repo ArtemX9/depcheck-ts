@@ -21,7 +21,13 @@ import {
   UnusedSchema,
   UNUSED_JSON_SCHEMA,
 } from './schemas';
-import {buildBundleSizePrompt, buildLicensePrompt, buildOutdatedPrompt, buildUnusedPrompt} from '../../prompts';
+import {
+  buildBundleSizePrompt,
+  buildLicensePrompt,
+  buildOutdatedPrompt,
+  buildUnusedPrompt, SYSTEM_BUNDLE_SIZE_PROMPT, SYSTEM_LICENSE_PROMPT,
+  SYSTEM_OUTDATED_PROMPT, SYSTEM_UNUSED_PROMPT,
+} from '../../prompts';
 
 export class OpenAIProvider implements LLMProvider {
   private readonly apiKey: string;
@@ -86,8 +92,7 @@ export class OpenAIProvider implements LLMProvider {
     const result = await this.callApi('outdated_insight', OUTDATED_JSON_SCHEMA, [
       {
         role: Role.SYSTEM,
-        content:
-          'You are a dependency health expert. Analyze the outdated npm packages and provide actionable upgrade advice. Be concise.',
+        content: SYSTEM_OUTDATED_PROMPT,
       },
       {
         role: Role.USER,
@@ -102,8 +107,7 @@ export class OpenAIProvider implements LLMProvider {
     const result = await this.callApi('bundle_size_insight', BUNDLE_SIZE_JSON_SCHEMA, [
       {
         role: Role.SYSTEM,
-        content:
-          'You are a bundle size optimization expert. Analyze heavy npm packages and recommend lighter alternatives. Be concise.',
+        content: SYSTEM_BUNDLE_SIZE_PROMPT,
       },
       {
         role: Role.USER,
@@ -118,8 +122,7 @@ export class OpenAIProvider implements LLMProvider {
     const result = await this.callApi('license_insight', LICENSE_JSON_SCHEMA, [
       {
         role: Role.SYSTEM,
-        content:
-          'You are a software license compliance expert. Analyze npm package licenses and identify risks. Be concise.',
+        content: SYSTEM_LICENSE_PROMPT,
       },
       {
         role: Role.USER,
@@ -135,7 +138,7 @@ export class OpenAIProvider implements LLMProvider {
       {
         role: Role.SYSTEM,
         content:
-          'You are a dependency cleanup expert. Analyze unused npm packages and provide cleanup advice. Be concise.',
+        SYSTEM_UNUSED_PROMPT,
       },
       {
         role: Role.USER,
