@@ -74,7 +74,10 @@ export interface AnalyzerError {
 // AI provider types
 // ---------------------------------------------------------------------------
 
-export type AIProviderName = 'grok';
+export enum AIProviderName {
+  GROK = 'grok',
+  OPEN_AI = 'openai',
+};
 
 export interface AIOptions {
   provider: AIProviderName;

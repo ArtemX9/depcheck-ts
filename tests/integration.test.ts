@@ -26,7 +26,7 @@ import type {
   AIOptions,
   OutdatedInsight,
 } from '../src/types';
-import { VersionBump, OutputFormat } from '../src/types';
+import { VersionBump, OutputFormat, AIProviderName } from '../src/types';
 
 // ---------------------------------------------------------------------------
 // Use vi.hoisted() so the mock functions are available before the vi.mock
@@ -364,7 +364,7 @@ describe('integration: markdown reporter', () => {
 // ---------------------------------------------------------------------------
 
 describe('integration: AI insights pipeline', () => {
-  const aiOptions: AIOptions = { provider: 'grok', apiKey: 'test-key', model: 'grok-4-1-fast' };
+  const aiOptions: AIOptions = { provider: AIProviderName.GROK, apiKey: 'test-key', model: 'grok-4-1-fast' };
 
   const outdatedInsight: OutdatedInsight = {
     summary: 'Express has a major update available.',

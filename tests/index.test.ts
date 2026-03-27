@@ -10,7 +10,7 @@ import type {
   LicenseInsight,
   UnusedInsight,
 } from '../src/types';
-import { VersionBump } from '../src/types';
+import { VersionBump, AIProviderName } from '../src/types';
 
 // ---------------------------------------------------------------------------
 // Use vi.hoisted() so the mock functions are available before the vi.mock
@@ -95,7 +95,7 @@ function makeOutdatedPackage(override?: Partial<OutdatedPackage>): OutdatedPacka
 }
 
 function makeAIOptions(): AIOptions {
-  return { provider: 'grok', apiKey: faker.string.alphanumeric(32), model: 'grok-4-1-fast' };
+  return { provider: AIProviderName.GROK, apiKey: faker.string.alphanumeric(32), model: 'grok-4-1-fast' };
 }
 
 function makeOutdatedInsight(override?: Partial<OutdatedInsight>): OutdatedInsight {

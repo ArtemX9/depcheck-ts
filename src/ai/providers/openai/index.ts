@@ -10,7 +10,7 @@ import type {
   UnusedInsight,
 } from '../../../types';
 import {type ChatMessage} from '../types';
-import {isGrokResponseBody} from './utils';
+import {isOpenAIResponseBody} from './utils';
 import {
   BundleSizeSchema,
   BUNDLE_SIZE_JSON_SCHEMA,
@@ -23,10 +23,10 @@ import {
 } from './schemas';
 import {buildBundleSizePrompt, buildLicensePrompt, buildOutdatedPrompt, buildUnusedPrompt} from '../../prompts';
 
-export class GrokProvider implements LLMProvider {
+export class OpenAIProvider implements LLMProvider {
   private readonly apiKey: string;
   private readonly model: string;
-  private static readonly ENDPOINT = 'https://api.x.ai/v1/chat/completions';
+  private static readonly ENDPOINT = 'https://api.openai.com/v1/chat/completions';
 
   constructor(apiKey: string, model: string) {
     this.apiKey = apiKey;
@@ -38,7 +38,7 @@ export class GrokProvider implements LLMProvider {
     schema: Record<string, unknown>,
     messages: ChatMessage[],
   ): Promise<unknown> {
-    const response = await fetch(GrokProvider.ENDPOINT, {
+    const response = await fetch(OpenAIProvider.ENDPOINT, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
@@ -47,13 +47,12 @@ export class GrokProvider implements LLMProvider {
       body: JSON.stringify({
         model: this.model,
         messages,
-        temperature: 0,
         response_format: {
           type: 'json_schema',
           json_schema: {
             name: schemaName,
-            strict: true,
             schema,
+            strict: true,
           },
         },
       }),
@@ -67,17 +66,17 @@ export class GrokProvider implements LLMProvider {
       } catch {
         // body unreadable — omit detail
       }
-      throw new Error(`Grok API error: ${String(response.status)} ${response.statusText}${detail}`);
+      throw new Error(`OpenAI API error: ${String(response.status)} ${response.statusText}${detail}`);
     }
 
     const body: unknown = await response.json();
-    if (!isGrokResponseBody(body)) {
-      throw new Error('Grok API returned unexpected response shape');
+    if (!isOpenAIResponseBody(body)) {
+      throw new Error('OpenAI API returned unexpected response shape');
     }
 
     const content = body.choices?.[0]?.message?.content;
     if (typeof content !== 'string') {
-      throw new Error('Grok API returned empty content');
+      throw new Error('OpenAI API returned empty content');
     }
 
     return JSON.parse(content) as unknown;

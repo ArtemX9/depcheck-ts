@@ -3,7 +3,7 @@ export type ChatMessage = {
     content: string;
 }
 
-export type GrokResponseBody = {
+export type ProviderResponseBody = {
     choices?: Array<{
         message?: {
             content?: string;
