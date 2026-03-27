@@ -1,5 +1,7 @@
+import {type Role} from '../types';
+
 export type ChatMessage = {
-    role: 'system' | 'user';
+    role: Role;
     content: string;
 }
 
