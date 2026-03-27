@@ -6,6 +6,8 @@
 [![CI](https://github.com/ArtemX9/depcheck-ts/actions/workflows/ci.yml/badge.svg)](https://github.com/ArtemX9/depcheck-ts/actions/workflows/ci.yml)
 
 ![Grok AI](https://img.shields.io/badge/Grok_AI-000000?logo=xai&logoColor=white)
+![OpenAI](https://img.shields.io/badge/OpenAI-412991?logo=openai&logoColor=white)
+![Gemini](https://img.shields.io/badge/Gemini-8E75B2?logo=googlegemini&logoColor=white)
 
 TypeScript CLI tool and npm library that analyzes a project's npm dependencies for outdated packages, bundle size impact, license conflicts, and unused imports.
 
@@ -39,6 +41,12 @@ depcheck-ts --ci
 
 # AI-powered insights (Grok)
 depcheck-ts --ai-provider grok --ai-key <XAI_API_KEY> --ai-model grok-3-mini-fast
+
+# AI-powered insights (OpenAI)
+depcheck-ts --ai-provider openai --ai-key <OPENAI_API_KEY> --ai-model gpt-4o-mini
+
+# AI-powered insights (Gemini)
+depcheck-ts --ai-provider gemini --ai-key <GEMINI_API_KEY> --ai-model gemini-2.0-flash
 ```
 
 ## Example Output
@@ -73,21 +81,34 @@ Environment variables are the lowest-priority configuration tier, sitting below 
 
 **Priority order (highest wins): CLI flags > `.depcheck-ts.json` > env vars > defaults**
 
-| Variable | Maps to | Notes |
-|---|---|---|
-| `DEPCHECK_PATH` | `--path` | Project root path |
-| `DEPCHECK_FORMAT` | `--format` | `terminal`, `json`, or `markdown` |
-| `DEPCHECK_CI` | `--ci` | `true` or `1` enables CI mode |
-| `DEPCHECK_AI_PROVIDER` | `--ai-provider` | e.g. `grok` |
-| `DEPCHECK_AI_KEY` | `--ai-key` | API key — recommended approach for secrets |
-| `DEPCHECK_AI_MODEL` | `--ai-model` | e.g. `grok-3-mini-fast` |
+| Variable | Maps to | Notes                                                      |
+|---|---|------------------------------------------------------------|
+| `DEPCHECK_PATH` | `--path` | Project root path                                          |
+| `DEPCHECK_FORMAT` | `--format` | `terminal`, `json`, or `markdown`                          |
+| `DEPCHECK_CI` | `--ci` | `true` or `1` enables CI mode                              |
+| `DEPCHECK_AI_PROVIDER` | `--ai-provider` | `grok`, `openai`, or `gemini`                              |
+| `DEPCHECK_AI_KEY` | `--ai-key` | API key — recommended approach for secrets                 |
+| `DEPCHECK_AI_MODEL` | `--ai-model` | e.g. `grok-3-mini-fast`, `gpt-4o-mini`, `gemini-2.0-flash` |
 
 Example — set the AI key in the environment rather than on the command line:
 
 ```bash
+# xAI Grok
 export DEPCHECK_AI_PROVIDER=grok
 export DEPCHECK_AI_KEY=xai-...
 export DEPCHECK_AI_MODEL=grok-3-mini-fast
+depcheck-ts
+
+# OpenAI
+export DEPCHECK_AI_PROVIDER=openai
+export DEPCHECK_AI_KEY=sk-...
+export DEPCHECK_AI_MODEL=gpt-4o-mini
+depcheck-ts
+
+# Google Gemini
+export DEPCHECK_AI_PROVIDER=gemini
+export DEPCHECK_AI_KEY=...
+export DEPCHECK_AI_MODEL=gemini-2.0-flash
 depcheck-ts
 ```
 
@@ -106,7 +127,7 @@ console.log(report.unused);     // UnusedReport
 console.log(report.score);      // 0-100 health score
 console.log(report.errors);     // AnalyzerError[] — per-analyzer failures
 
-// With AI insights
+// With AI insights — provider can be 'grok', 'openai', or 'gemini'
 const reportWithAI = await analyze(
   { projectPath: './my-project' },
   { provider: 'grok', apiKey: process.env.XAI_API_KEY, model: 'grok-3-mini-fast' }
@@ -134,6 +155,8 @@ When an AI provider is configured, each analyzer sends its results to the LLM an
 | Provider | Value | Notes |
 |---|---|---|
 | xAI Grok | `grok` | Uses `https://api.x.ai/v1/chat/completions` with structured JSON output |
+| OpenAI | `openai` | Uses `https://api.openai.com/v1/chat/completions` with structured JSON output |
+| Google Gemini | `gemini` | Uses `https://generativelanguage.googleapis.com` with structured JSON output |
 
 ## What It Checks
 
@@ -162,7 +185,6 @@ Score floor is 0.
 
 ## Roadmap
 
-- Support OpenAI provider
 - Support Ollama provider
 - Extra analyzer for vulnerabilities
 

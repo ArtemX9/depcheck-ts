@@ -50,7 +50,10 @@
     "bundlephobia",
     "npm-audit",
     "npm-outdated",
-    "devops"
+    "devops",
+    "openai",
+    "gemini",
+    "gpt"
   ],
   "main": "./build/depcheck-ts.cjs",
   "module": "./build/depcheck-ts.js",
