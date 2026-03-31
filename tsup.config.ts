@@ -9,7 +9,7 @@ export default defineConfig([
     outDir: 'build',
     clean: true,
     sourcemap: true,
-    target: 'node20',
+    target: 'node22',
     splitting: false,
     shims: true,
   },
@@ -21,7 +21,7 @@ export default defineConfig([
     outDir: 'build',
     clean: false,
     sourcemap: true,
-    target: 'node20',
+    target: 'node22',
     splitting: false,
     shims: true,
     banner: {
