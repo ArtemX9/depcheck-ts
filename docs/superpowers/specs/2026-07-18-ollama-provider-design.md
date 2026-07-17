@@ -153,6 +153,22 @@ New directory, mirroring the existing three:
 - No `schemas.ts` — imports directly from the new shared `src/ai/schemas.ts`.
 
 ```typescript
+import { type LLMProvider, Role } from '../../types.js';
+import type { ChatMessage } from '../types.js';
+import { isOllamaResponseBody } from './utils.js';
+import {
+  OutdatedSchema, OUTDATED_JSON_SCHEMA,
+  BundleSizeSchema, BUNDLE_SIZE_JSON_SCHEMA,
+  LicenseSchema, LICENSE_JSON_SCHEMA,
+  UnusedSchema, UNUSED_JSON_SCHEMA,
+} from '../../schemas.js';
+import {
+  buildOutdatedPrompt, SYSTEM_OUTDATED_PROMPT,
+  buildBundleSizePrompt, SYSTEM_BUNDLE_SIZE_PROMPT,
+  buildLicensePrompt, SYSTEM_LICENSE_PROMPT,
+  buildUnusedPrompt, SYSTEM_UNUSED_PROMPT,
+} from '../../prompts.js';
+
 export class OllamaProvider implements LLMProvider {
   private readonly model: string;
   private readonly endpoint: string;
@@ -169,14 +185,14 @@ export class OllamaProvider implements LLMProvider {
     this.endpoint = (endpoint ?? OllamaProvider.DEFAULT_ENDPOINT).replace(/\/+$/, '');
   }
 
-  private async callApi(schema: Record<string, unknown>, prompt: string): Promise<unknown> {
+  private async callApi(schema: Record<string, unknown>, messages: ChatMessage[]): Promise<unknown> {
     const response = await fetch(`${this.endpoint}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: this.model,
         stream: false,
-        messages: [{ role: Role.USER, content: prompt }],
+        messages,
         format: schema,
       }),
     });
@@ -193,16 +209,44 @@ export class OllamaProvider implements LLMProvider {
     return JSON.parse(body.message.content) as unknown;
   }
 
-  // analyzeOutdated / analyzeBundleSize / analyzeLicenses / analyzeUnused
-  // — same shape as GeminiProvider's: build a prompt string via the shared
-  // src/ai/prompts.ts builders, call callApi(), parse with the shared Zod schema.
+  async analyzeOutdated(packages: OutdatedPackage[]): Promise<OutdatedInsight> {
+    const result = await this.callApi(OUTDATED_JSON_SCHEMA, [
+      { role: Role.SYSTEM, content: SYSTEM_OUTDATED_PROMPT },
+      { role: Role.USER, content: buildOutdatedPrompt(packages) },
+    ]);
+    return OutdatedSchema.parse(result);
+  }
+
+  // analyzeBundleSize / analyzeLicenses / analyzeUnused follow the same
+  // shape: a Role.SYSTEM + Role.USER ChatMessage pair built from the shared
+  // src/ai/prompts.ts builders, passed to callApi(), parsed with the shared
+  // Zod schema — i.e. GrokProvider's/OpenAIProvider's message-array pattern,
+  // minus the schemaName wrapper those two need for response_format.name
+  // (Ollama's format field takes the raw JSON schema directly, like
+  // Gemini's responseSchema does).
 }
 ```
 
+Uses the existing shared `ChatMessage` type (`src/ai/providers/types.ts`) already used by `GrokProvider`/`OpenAIProvider` — Ollama's `/api/chat` is a chat-completions-style endpoint supporting a `role: "system"` message, unlike Gemini's `generateContent`, which has no message-array concept and is why `GeminiProvider` concatenates system+user into one string instead.
+
 ### `cli.ts`
+
+Needs a new value import — `createProvider` is currently only used inside
+`index.ts`, not `cli.ts`:
+
+```typescript
+import { createProvider } from './ai/providers/index.js';
+```
+
+New option, and a new field on the `.action()` callback's `opts` type
+(alongside the existing `aiProvider?`, `aiKey?`, `aiModel?`):
 
 ```typescript
 .option('--ai-endpoint <url>', 'Endpoint URL for the AI provider (e.g. Ollama)')
+```
+
+```typescript
+aiEndpoint?: string;
 ```
 
 ```typescript
