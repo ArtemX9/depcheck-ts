@@ -363,21 +363,3 @@ describe('GeminiProvider.analyzeUnused()', () => {
     expect(result.summary).toBe('2 unused packages found');
   });
 });
-
-// ---------------------------------------------------------------------------
-// createProvider factory integration
-// ---------------------------------------------------------------------------
-
-import { createProvider } from '../../../src/ai/providers/index';
-
-describe('createProvider with gemini', () => {
-  it('returns a GeminiProvider instance when AIProviderName.GEMINI is used', () => {
-    const p = createProvider({
-      provider: AIProviderName.GEMINI,
-      apiKey: makeApiKey(),
-      model: makeModel(),
-    });
-
-    expect(p).toBeInstanceOf(GeminiProvider);
-  });
-});

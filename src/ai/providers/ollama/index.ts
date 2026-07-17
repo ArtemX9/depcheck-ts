@@ -8,6 +8,7 @@ import type {
   BundleSizeInsight,
   LicenseInsight,
   UnusedInsight,
+  AIOptions,
 } from '../../../types';
 import { type ChatMessage } from '../types';
 import { isOllamaResponseBody } from './utils';
@@ -29,17 +30,12 @@ import {
   SYSTEM_OUTDATED_PROMPT, SYSTEM_UNUSED_PROMPT,
 } from '../../prompts';
 
-interface OllamaValidateOptions {
-  apiKey: string;
-  model: string;
-}
-
 export class OllamaProvider implements LLMProvider {
   private readonly model: string;
   private readonly endpoint: string;
   private static readonly DEFAULT_ENDPOINT = 'http://localhost:11434';
 
-  static validate(options: OllamaValidateOptions): void {
+  static validate(options: AIOptions): void {
     if (options.model === '') {
       throw new Error('Ollama requires a model (--ai-model), e.g. llama3.2');
     }

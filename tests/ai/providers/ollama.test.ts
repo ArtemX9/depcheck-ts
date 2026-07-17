@@ -16,7 +16,7 @@ import type {
   LicenseReport,
   UnusedReport,
 } from '../../../src/types';
-import { VersionBump } from '../../../src/types';
+import { AIProviderName, VersionBump } from '../../../src/types';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -78,12 +78,12 @@ beforeEach(() => {
 
 describe('OllamaProvider.validate()', () => {
   it('throws when model is empty', () => {
-    const options = { provider: 'ollama' as const, apiKey: '', model: '' };
+    const options = { provider: AIProviderName.OLLAMA, apiKey: '', model: '' };
     expect(() => { OllamaProvider.validate(options); }).toThrow('model');
   });
 
   it('does not throw when model is provided and apiKey is empty', () => {
-    const options = { provider: 'ollama' as const, apiKey: '', model: 'llama3.2' };
+    const options = { provider: AIProviderName.OLLAMA, apiKey: '', model: 'llama3.2' };
     expect(() => { OllamaProvider.validate(options); }).not.toThrow();
   });
 });

@@ -78,12 +78,14 @@ export enum AIProviderName {
   GROK = 'grok',
   OPEN_AI = 'openai',
   GEMINI = 'gemini',
+  OLLAMA = 'ollama',
 };
 
 export interface AIOptions {
   provider: AIProviderName;
   apiKey: string;
   model: string;
+  endpoint?: string;
 }
 
 // Per-analyzer insight types (structured output shapes)
