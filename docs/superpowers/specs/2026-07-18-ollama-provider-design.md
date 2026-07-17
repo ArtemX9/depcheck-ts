@@ -331,10 +331,14 @@ Gemini response today.
   `tests/ai/providers/openai.test.ts` / `gemini.test.ts`: mocked `fetch`,
   covering happy path, malformed response shape, HTTP error, empty content,
   and `validate()` (throws on empty model, passes with empty apiKey).
-- `tests/ai/providers/index.test.ts` (new — no factory test currently
-  exists): covers all four providers' `validate()` being invoked correctly,
-  and the exhaustive-switch default throwing on an unrecognized provider
-  name.
+- `tests/ai/providers/index.test.ts` (new): a `createProvider` factory test
+  already exists, but only for Gemini, and it's embedded at the bottom of
+  `gemini.test.ts` (`describe('createProvider with gemini', ...)`, added
+  after a `// createProvider factory integration` banner comment) rather
+  than living in a file of its own — no equivalent exists for Grok or
+  OpenAI. Move that block into the new `index.test.ts`, and expand it to
+  cover all four providers' `validate()` being invoked correctly plus the
+  exhaustive-switch default throwing on an unrecognized provider name.
 - `tests/cli.test.ts`: three existing tests assert the exact behavior this
   design changes and need rewrites, not just additions:
   - `'passes undefined aiOptions when only some AI flags are provided
@@ -361,11 +365,15 @@ Gemini response today.
   successfully when `ai.apiKey` is omitted. `'throws when ai.model is
   missing'` and `'throws when ai.provider is missing'` stay as-is (both
   fields remain required).
-- Existing `tests/ai/providers/{grok,openai,gemini}.test.ts`: update schema
-  imports to the new shared `src/ai/schemas.ts` location; add `validate()`
-  coverage (throws on empty apiKey, throws on empty model). Constructor
-  call sites (`new GrokProvider(apiKey, model)`, etc.) are unaffected —
-  those signatures don't change.
+- Existing `tests/ai/providers/{grok,openai,gemini}.test.ts`: none of these
+  files import schemas directly today (they only import the provider class
+  and shared project types, exercising schema validation indirectly through
+  `analyzeOutdated()` etc.), so there are no schema imports to update. Just
+  add `validate()` coverage (throws on empty apiKey, throws on empty model)
+  to each. Constructor call sites (`new GrokProvider(apiKey, model)`, etc.)
+  are unaffected — those signatures don't change. Remove the
+  `createProvider`-with-Gemini block from `gemini.test.ts` per the
+  `index.test.ts` bullet above.
 
 **Manual verification**: once implemented, smoke-test against a real local
 Ollama instance (not just mocked `fetch`) to confirm the `format`
