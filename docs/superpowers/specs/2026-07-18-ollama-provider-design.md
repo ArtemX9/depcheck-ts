@@ -39,7 +39,7 @@ this work also fixes, since both sit directly in the code path being changed:
 - Fix gap #1 as a side effect of the above: `cli.ts` no longer hardcodes
   `'grok'`; any unrecognized provider name falls through `createProvider()`'s
   existing exhaustive-switch `default` case, which already throws.
-- Extract the four duplicated `schemas.ts` files (Grok/OpenAI/Gemini already
+- Extract the three duplicated `schemas.ts` files (Grok/OpenAI/Gemini already
   contain byte-for-byte identical Zod schemas) into one shared module, and
   have all four providers — including the new Ollama one — use it.
 
@@ -107,28 +107,34 @@ static validate(options: AIOptions): void; // throws Error on invalid input
 - `OllamaProvider.validate`: throws only if `model === ''`. Does not check
   `apiKey`.
 
-Constructors change from positional `(apiKey: string, model: string)` to a
-single `(options: AIOptions)`, since Ollama also needs `endpoint`. This keeps
-all four provider constructors uniform.
+`GrokProvider`, `OpenAIProvider`, `GeminiProvider` keep their existing
+`(apiKey: string, model: string)` constructors unchanged — they don't need
+`endpoint`, and six call sites across their three existing test files already
+construct them positionally (`new GrokProvider(makeApiKey(), makeModel())`,
+etc.); there's no reason to force those through an `AIOptions`-shaped
+constructor and churn tests that don't otherwise change. `OllamaProvider`
+gets its own constructor instead: `(model: string, endpoint?: string)` —
+it has no use for `apiKey` at all.
 
 `createProvider(options)` (`src/ai/providers/index.ts`) calls the matching
-class's `validate(options)` before constructing it:
+class's `validate(options)` before constructing it, passing each provider
+only the fields it actually uses:
 
 ```typescript
 export function createProvider(options: AIOptions): LLMProvider {
   switch (options.provider) {
     case AIProviderName.GROK:
       GrokProvider.validate(options);
-      return new GrokProvider(options);
+      return new GrokProvider(options.apiKey, options.model);
     case AIProviderName.OPEN_AI:
       OpenAIProvider.validate(options);
-      return new OpenAIProvider(options);
+      return new OpenAIProvider(options.apiKey, options.model);
     case AIProviderName.GEMINI:
       GeminiProvider.validate(options);
-      return new GeminiProvider(options);
+      return new GeminiProvider(options.apiKey, options.model);
     case AIProviderName.OLLAMA:
       OllamaProvider.validate(options);
-      return new OllamaProvider(options);
+      return new OllamaProvider(options.model, options.endpoint);
     default: {
       const _exhaustive: never = options.provider;
       throw new Error(`Unsupported AI provider: ${String(_exhaustive)}`);
@@ -158,9 +164,9 @@ export class OllamaProvider implements LLMProvider {
     }
   }
 
-  constructor(options: AIOptions) {
-    this.model = options.model;
-    this.endpoint = (options.endpoint ?? OllamaProvider.DEFAULT_ENDPOINT).replace(/\/+$/, '');
+  constructor(model: string, endpoint?: string) {
+    this.model = model;
+    this.endpoint = (endpoint ?? OllamaProvider.DEFAULT_ENDPOINT).replace(/\/+$/, '');
   }
 
   private async callApi(schema: Record<string, unknown>, prompt: string): Promise<unknown> {
@@ -277,7 +283,9 @@ Gemini response today.
   the config shape validator.
 - Existing `tests/ai/providers/{grok,openai,gemini}.test.ts`: update schema
   imports to the new shared `src/ai/schemas.ts` location; add `validate()`
-  coverage (throws on empty apiKey, throws on empty model).
+  coverage (throws on empty apiKey, throws on empty model). Constructor
+  call sites (`new GrokProvider(apiKey, model)`, etc.) are unaffected —
+  those signatures don't change.
 
 **Manual verification**: once implemented, smoke-test against a real local
 Ollama instance (not just mocked `fetch`) to confirm the `format`
