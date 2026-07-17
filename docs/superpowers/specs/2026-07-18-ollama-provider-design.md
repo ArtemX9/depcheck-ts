@@ -335,13 +335,32 @@ Gemini response today.
   exists): covers all four providers' `validate()` being invoked correctly,
   and the exhaustive-switch default throwing on an unrecognized provider
   name.
-- `tests/cli.test.ts`: add cases for `--ai-provider ollama` requiring no
-  `--ai-key`; `--ai-endpoint` / `DEPCHECK_AI_ENDPOINT` resolution; the
-  now-unconditional validation firing for a typo'd provider name even
-  without `--ai-key`/`--ai-model` set; case-insensitive provider matching
-  (`Ollama`, `OLLAMA`).
-- `tests/utils/config.test.ts`: update for `ai.apiKey` now being optional in
-  the config shape validator.
+- `tests/cli.test.ts`: three existing tests assert the exact behavior this
+  design changes and need rewrites, not just additions:
+  - `'passes undefined aiOptions when only some AI flags are provided
+    (missing ai-key)'` (`--ai-provider grok --ai-model x`, no key) currently
+    asserts `aiOptions` comes out `undefined`. Under the new design this
+    must instead assert `process.exit(1)` is called (Grok always requires
+    a key — silent no-op is exactly gap #2 being fixed).
+  - `'calls process.exit(1) when an unknown provider is specified'` and
+    `'writes an error message to stderr for an unknown provider'` both use
+    `--ai-provider openai` as their "unknown provider" example. `openai`
+    stops being unknown under this design (that's goal #1) — both need to
+    switch to a genuinely unrecognized name (e.g. `'not-a-real-provider'`).
+  - New cases to add: `--ai-provider ollama` requiring no `--ai-key`;
+    `--ai-endpoint` / `DEPCHECK_AI_ENDPOINT` resolution; the
+    now-unconditional validation firing for a typo'd provider name even
+    without `--ai-key`/`--ai-model` set; case-insensitive provider matching
+    (`Ollama`, `OLLAMA`); `openai`/`gemini` now succeeding as valid
+    providers (previously impossible to test since the CLI rejected them
+    outright).
+- `tests/utils/config.test.ts`: the existing test `'throws when ai.apiKey is
+  missing'` (asserts `loadConfig()` rejects `{ ai: { provider: 'grok', model:
+  'model' } }`) directly asserts the old, now-incorrect behavior — it must be
+  replaced with a test asserting the opposite: that config resolves
+  successfully when `ai.apiKey` is omitted. `'throws when ai.model is
+  missing'` and `'throws when ai.provider is missing'` stay as-is (both
+  fields remain required).
 - Existing `tests/ai/providers/{grok,openai,gemini}.test.ts`: update schema
   imports to the new shared `src/ai/schemas.ts` location; add `validate()`
   coverage (throws on empty apiKey, throws on empty model). Constructor
