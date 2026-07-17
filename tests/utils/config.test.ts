@@ -93,6 +93,28 @@ describe('loadConfig()', () => {
       expect(config.ai).toEqual(ai);
     });
 
+    it('resolves successfully when ai.apiKey is omitted', async () => {
+      mockReadFile.mockResolvedValue(
+        JSON.stringify({ ai: { provider: 'ollama', model: 'llama3.2' } }),
+      );
+
+      const config = await loadConfig('/some/project');
+      expect(config.ai).toEqual({ provider: 'ollama', model: 'llama3.2' });
+    });
+
+    it('parses a config with ai.endpoint set', async () => {
+      mockReadFile.mockResolvedValue(
+        JSON.stringify({ ai: { provider: 'ollama', model: 'llama3.2', endpoint: 'http://localhost:11434' } }),
+      );
+
+      const config = await loadConfig('/some/project');
+      expect(config.ai).toEqual({
+        provider: 'ollama',
+        model: 'llama3.2',
+        endpoint: 'http://localhost:11434',
+      });
+    });
+
     it('returns an empty object for an empty JSON object in the file', async () => {
       mockReadFile.mockResolvedValue('{}');
 
@@ -144,17 +166,17 @@ describe('loadConfig()', () => {
       await expect(loadConfig('/some/project')).rejects.toThrow();
     });
 
-    it('throws when ai.apiKey is missing', async () => {
+    it('throws when ai.model is missing', async () => {
       mockReadFile.mockResolvedValue(
-        JSON.stringify({ ai: { provider: 'grok', model: 'model' } }),
+        JSON.stringify({ ai: { provider: 'grok', apiKey: 'key' } }),
       );
 
       await expect(loadConfig('/some/project')).rejects.toThrow();
     });
 
-    it('throws when ai.model is missing', async () => {
+    it('throws when ai.endpoint is present but not a string', async () => {
       mockReadFile.mockResolvedValue(
-        JSON.stringify({ ai: { provider: 'grok', apiKey: 'key' } }),
+        JSON.stringify({ ai: { provider: 'ollama', model: 'llama3.2', endpoint: 123 } }),
       );
 
       await expect(loadConfig('/some/project')).rejects.toThrow();

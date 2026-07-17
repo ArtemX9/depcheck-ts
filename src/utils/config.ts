@@ -8,8 +8,9 @@ export interface DepcheckConfig {
   ci?: boolean;
   ai?: {
     provider: string;
-    apiKey: string;
+    apiKey?: string;
     model: string;
+    endpoint?: string;
   };
 }
 
@@ -31,8 +32,9 @@ function isDepcheckConfig(val: unknown): val is DepcheckConfig {
     if (typeof v['ai'] !== 'object' || v['ai'] === null) return false;
     const ai = v['ai'] as Record<string, unknown>;
     if (typeof ai['provider'] !== 'string') return false;
-    if (typeof ai['apiKey'] !== 'string') return false;
+    if (ai['apiKey'] !== undefined && typeof ai['apiKey'] !== 'string') return false;
     if (typeof ai['model'] !== 'string') return false;
+    if (ai['endpoint'] !== undefined && typeof ai['endpoint'] !== 'string') return false;
   }
   return true;
 }
