@@ -145,15 +145,27 @@ export function createProvider(options: AIOptions): LLMProvider {
 
 ### `OllamaProvider` (`src/ai/providers/ollama/`)
 
-New directory, mirroring the existing three:
+New directory. Its own `types.ts` is needed — not all three existing
+providers have one: `grok/` and `openai/` both reuse the shared
+`ProviderResponseBody` type (`src/ai/providers/types.ts`, `{ choices: [{
+message: { content } }] }`) since both are OpenAI-compatible response
+shapes with only a type guard (`utils.ts`) needed on top. `gemini/` has its
+own `types.ts` because its shape (`candidates[].content.parts[].text`) is
+genuinely different — same reasoning applies to Ollama, whose shape
+(`{ message: { content } }`, no `choices` wrapper) doesn't fit
+`ProviderResponseBody` either:
 
 - `index.ts` — the `OllamaProvider` class.
-- `types.ts` — Ollama chat response body type.
+- `types.ts` — `OllamaResponseBody` type (`{ message?: { content?: string } }`).
 - `utils.ts` — `isOllamaResponseBody()` type guard.
 - No `schemas.ts` — imports directly from the new shared `src/ai/schemas.ts`.
 
 ```typescript
 import { type LLMProvider, Role } from '../../types.js';
+import type {
+  OutdatedPackage, BundleSizeReport, LicenseReport, UnusedReport,
+  OutdatedInsight, BundleSizeInsight, LicenseInsight, UnusedInsight,
+} from '../../../types.js'; // src/types.ts — three levels up, not two
 import type { ChatMessage } from '../types.js';
 import { isOllamaResponseBody } from './utils.js';
 import {
@@ -206,7 +218,12 @@ export class OllamaProvider implements LLMProvider {
       throw new Error('Ollama API returned unexpected response shape');
     }
 
-    return JSON.parse(body.message.content) as unknown;
+    const content = body.message?.content;
+    if (typeof content !== 'string') {
+      throw new Error('Ollama API returned empty content');
+    }
+
+    return JSON.parse(content) as unknown;
   }
 
   async analyzeOutdated(packages: OutdatedPackage[]): Promise<OutdatedInsight> {
