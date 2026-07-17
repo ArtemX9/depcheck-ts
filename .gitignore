@@ -3,6 +3,9 @@
 *.*~
 project.lock.json
 .DS_Store
+
+# Claude Code native worktrees
+.claude/worktrees/
 *.pyc
 nupkg/
 
