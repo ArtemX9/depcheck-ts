@@ -16,7 +16,7 @@ import type {
   LicenseReport,
   UnusedReport,
 } from '../../../src/types';
-import { VersionBump } from '../../../src/types';
+import { AIProviderName, VersionBump } from '../../../src/types';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -77,6 +77,27 @@ let provider: GrokProvider;
 beforeEach(() => {
   mockFetch.mockReset();
   provider = new GrokProvider(makeApiKey(), makeModel());
+});
+
+// ---------------------------------------------------------------------------
+// validate()
+// ---------------------------------------------------------------------------
+
+describe('GrokProvider.validate()', () => {
+  it('throws when apiKey is empty', () => {
+    const options = { provider: AIProviderName.GROK, apiKey: '', model: makeModel() };
+    expect(() => { GrokProvider.validate(options); }).toThrow('API key');
+  });
+
+  it('throws when model is empty', () => {
+    const options = { provider: AIProviderName.GROK, apiKey: makeApiKey(), model: '' };
+    expect(() => { GrokProvider.validate(options); }).toThrow('model');
+  });
+
+  it('does not throw when apiKey and model are both provided', () => {
+    const options = { provider: AIProviderName.GROK, apiKey: makeApiKey(), model: makeModel() };
+    expect(() => { GrokProvider.validate(options); }).not.toThrow();
+  });
 });
 
 // ---------------------------------------------------------------------------

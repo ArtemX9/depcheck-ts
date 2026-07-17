@@ -7,10 +7,13 @@ import { GeminiProvider } from './gemini/index.js';
 export function createProvider(options: AIOptions): LLMProvider {
   switch (options.provider) {
     case AIProviderName.GROK:
+      GrokProvider.validate(options);
       return new GrokProvider(options.apiKey, options.model);
     case AIProviderName.OPEN_AI:
+      OpenAIProvider.validate(options);
       return new OpenAIProvider(options.apiKey, options.model);
     case AIProviderName.GEMINI:
+      GeminiProvider.validate(options);
       return new GeminiProvider(options.apiKey, options.model);
     default: {
       // Exhaustive guard: protects against future runtime values before the

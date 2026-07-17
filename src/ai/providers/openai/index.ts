@@ -8,6 +8,7 @@ import type {
   BundleSizeInsight,
   LicenseInsight,
   UnusedInsight,
+  AIOptions,
 } from '../../../types';
 import {type ChatMessage} from '../types';
 import {isOpenAIResponseBody} from './utils';
@@ -30,6 +31,15 @@ import {
 } from '../../prompts';
 
 export class OpenAIProvider implements LLMProvider {
+  static validate(options: AIOptions): void {
+    if (options.apiKey === '') {
+      throw new Error('OpenAI requires an API key (--ai-key)');
+    }
+    if (options.model === '') {
+      throw new Error('OpenAI requires a model (--ai-model)');
+    }
+  }
+
   private readonly apiKey: string;
   private readonly model: string;
   private static readonly ENDPOINT = 'https://api.openai.com/v1/chat/completions';

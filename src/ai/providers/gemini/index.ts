@@ -8,6 +8,7 @@ import type {
   BundleSizeInsight,
   LicenseInsight,
   UnusedInsight,
+  AIOptions,
 } from '../../../types';
 import { isGeminiResponseBody } from './utils';
 import {
@@ -28,6 +29,15 @@ import {
 } from '../../prompts';
 
 export class GeminiProvider implements LLMProvider {
+  static validate(options: AIOptions): void {
+    if (options.apiKey === '') {
+      throw new Error('Gemini requires an API key (--ai-key)');
+    }
+    if (options.model === '') {
+      throw new Error('Gemini requires a model (--ai-model)');
+    }
+  }
+
   private readonly apiKey: string;
   private readonly model: string;
   private static readonly BASE_URL =

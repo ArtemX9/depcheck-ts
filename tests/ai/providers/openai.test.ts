@@ -16,7 +16,7 @@ import type {
   LicenseReport,
   UnusedReport,
 } from '../../../src/types';
-import { VersionBump } from '../../../src/types';
+import { AIProviderName, VersionBump } from '../../../src/types';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -77,6 +77,27 @@ let provider: OpenAIProvider;
 beforeEach(() => {
   mockFetch.mockReset();
   provider = new OpenAIProvider(makeApiKey(), makeModel());
+});
+
+// ---------------------------------------------------------------------------
+// validate()
+// ---------------------------------------------------------------------------
+
+describe('OpenAIProvider.validate()', () => {
+  it('throws when apiKey is empty', () => {
+    const options = { provider: AIProviderName.OPEN_AI, apiKey: '', model: makeModel() };
+    expect(() => { OpenAIProvider.validate(options); }).toThrow('API key');
+  });
+
+  it('throws when model is empty', () => {
+    const options = { provider: AIProviderName.OPEN_AI, apiKey: makeApiKey(), model: '' };
+    expect(() => { OpenAIProvider.validate(options); }).toThrow('model');
+  });
+
+  it('does not throw when apiKey and model are both provided', () => {
+    const options = { provider: AIProviderName.OPEN_AI, apiKey: makeApiKey(), model: makeModel() };
+    expect(() => { OpenAIProvider.validate(options); }).not.toThrow();
+  });
 });
 
 // ---------------------------------------------------------------------------

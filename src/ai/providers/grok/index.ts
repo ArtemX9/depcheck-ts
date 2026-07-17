@@ -8,6 +8,7 @@ import type {
   BundleSizeInsight,
   LicenseInsight,
   UnusedInsight,
+  AIOptions,
 } from '../../../types';
 import {type ChatMessage} from '../types';
 import {isGrokResponseBody} from './utils';
@@ -30,6 +31,15 @@ import {
 } from '../../prompts';
 
 export class GrokProvider implements LLMProvider {
+  static validate(options: AIOptions): void {
+    if (options.apiKey === '') {
+      throw new Error('Grok requires an API key (--ai-key)');
+    }
+    if (options.model === '') {
+      throw new Error('Grok requires a model (--ai-model)');
+    }
+  }
+
   private readonly apiKey: string;
   private readonly model: string;
   private static readonly ENDPOINT = 'https://api.x.ai/v1/chat/completions';
