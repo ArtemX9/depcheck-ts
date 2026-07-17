@@ -17,9 +17,9 @@ npm run lint:fix       # eslint --fix
 npm run typecheck      # tsc --noEmit
 
 # Run CLI locally during development
-node build/cli.js --path ../some-project
-node build/cli.js --format json --ci
-node build/cli.js --ai-provider grok --ai-key $XAI_API_KEY --ai-model grok-3-mini-fast
+node build/cli.cjs --path ../some-project
+node build/cli.cjs --format json --ci
+node build/cli.cjs --ai-provider grok --ai-key $XAI_API_KEY --ai-model grok-3-mini-fast
 ```
 
 ## Architecture
@@ -47,11 +47,21 @@ src/
 │   ├── service.ts      # AIInsightsService — thin delegation layer; analyzers depend on this, not a provider.
 │   └── providers/
 │       ├── index.ts    # createProvider(options) factory — maps AIProviderName → concrete implementation.
-│       └── grok/
-│           ├── index.ts   # GrokProvider class — orchestrates API calls via callApi().
-│           ├── schemas.ts # Zod schemas (OutdatedSchema, etc.) + z.toJSONSchema() exports for the API.
-│           ├── types.ts   # ChatMessage and GrokResponseBody types.
-│           └── utils.ts   # isGrokResponseBody() type guard.
+│       ├── types.ts    # Shared provider-level types.
+│       ├── grok/
+│       │   ├── index.ts   # GrokProvider class — orchestrates API calls via callApi().
+│       │   ├── schemas.ts # Zod schemas (OutdatedSchema, etc.) + z.toJSONSchema() exports for the API.
+│       │   ├── types.ts   # ChatMessage and GrokResponseBody types.
+│       │   └── utils.ts   # isGrokResponseBody() type guard.
+│       ├── openai/
+│       │   ├── index.ts   # OpenAIProvider class.
+│       │   ├── schemas.ts # Zod schemas for OpenAI's response format.
+│       │   └── utils.ts   # Response type guard.
+│       └── gemini/
+│           ├── index.ts   # GeminiProvider class.
+│           ├── schemas.ts # Zod schemas for Gemini's response format.
+│           ├── types.ts   # Gemini request/response types.
+│           └── utils.ts   # Response type guard.
 ├── reporters/          # Each reporter takes a FullReport and returns a formatted string.
 │   ├── terminal.ts     # chalk + cli-table3 colored output.
 │   ├── json.ts         # JSON.stringify with structure.
@@ -106,7 +116,11 @@ interface FullReport {
   aiInsights?: AIInsights;  // present only when an AI provider is configured
 }
 
-type AIProviderName = 'grok';
+enum AIProviderName {
+  GROK = 'grok',
+  OPEN_AI = 'openai',
+  GEMINI = 'gemini',
+}
 
 interface AIOptions {
   provider: AIProviderName;
