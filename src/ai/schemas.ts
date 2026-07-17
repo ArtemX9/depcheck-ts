@@ -1,4 +1,4 @@
-import {z} from 'zod';
+import { z } from 'zod';
 
 export const OutdatedSchema = z.object({
   summary: z.string(),
@@ -23,7 +23,7 @@ export const UnusedSchema = z.object({
   cleanupAdvice: z.string(),
 });
 
-// JSON Schema representations for the OpenAI API's response_format field
+// JSON Schema representations shared by every AI provider's structured-output request.
 export const OUTDATED_JSON_SCHEMA = z.toJSONSchema(OutdatedSchema);
 export const BUNDLE_SIZE_JSON_SCHEMA = z.toJSONSchema(BundleSizeSchema);
 export const LICENSE_JSON_SCHEMA = z.toJSONSchema(LicenseSchema);

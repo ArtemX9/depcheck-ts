@@ -19,7 +19,7 @@ import {
   OUTDATED_JSON_SCHEMA,
   UnusedSchema,
   UNUSED_JSON_SCHEMA,
-} from './schemas';
+} from '../../schemas';
 import {
   buildBundleSizePrompt,
   buildLicensePrompt,
