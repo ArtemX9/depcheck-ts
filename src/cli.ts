@@ -6,6 +6,7 @@ import { formatTerminal } from './reporters/terminal.ts';
 import { formatMarkdown } from './reporters/markdown.ts';
 import { formatJson } from './reporters/json';
 import { loadConfig } from './utils/config.js';
+import { createProvider } from './ai/providers/index.js';
 
 function reportTerminal(_report: FullReport): string {
   return formatTerminal(_report);
@@ -28,9 +29,10 @@ function buildProgram(): Command {
     .option('--path <path>', 'path to project root')
     .option('--format <format>', 'output format: terminal | json | markdown')
     .option('--ci', 'exit with non-zero code if issues are found', false)
-    .option('--ai-provider <provider>', 'AI provider for insights (e.g. grok)')
-    .option('--ai-key <key>', 'API key for the AI provider')
-    .option('--ai-model <model>', 'Model name (e.g. grok-4-1-fast)')
+    .option('--ai-provider <provider>', 'AI provider for insights (grok | openai | gemini | ollama)')
+    .option('--ai-key <key>', 'API key for the AI provider (not required for ollama)')
+    .option('--ai-model <model>', 'Model name (e.g. grok-4-1-fast, llama3.2)')
+    .option('--ai-endpoint <url>', 'Endpoint URL for the AI provider (e.g. Ollama, defaults to http://localhost:11434)')
     .action(async (opts: {
       path?: string;
       format?: string;
@@ -38,6 +40,7 @@ function buildProgram(): Command {
       aiProvider?: string;
       aiKey?: string;
       aiModel?: string;
+      aiEndpoint?: string;
     }) => {
       const cliPath = opts.path;
       const config = await loadConfig(cliPath ?? process.cwd());
@@ -49,17 +52,26 @@ function buildProgram(): Command {
 
       // AI options: CLI flags > config file > env vars
       const aiProviderRaw = opts.aiProvider ?? config.ai?.provider ?? process.env['DEPCHECK_AI_PROVIDER'];
-      const aiKey = opts.aiKey ?? config.ai?.apiKey ?? process.env['DEPCHECK_AI_KEY'];
-      const aiModel = opts.aiModel ?? config.ai?.model ?? process.env['DEPCHECK_AI_MODEL'];
+      const aiKey = opts.aiKey ?? config.ai?.apiKey ?? process.env['DEPCHECK_AI_KEY'] ?? '';
+      const aiModel = opts.aiModel ?? config.ai?.model ?? process.env['DEPCHECK_AI_MODEL'] ?? '';
+      const aiEndpoint = opts.aiEndpoint ?? config.ai?.endpoint ?? process.env['DEPCHECK_AI_ENDPOINT'];
 
       let aiOptions: AIOptions | undefined;
-      if (aiProviderRaw !== undefined && aiKey !== undefined && aiModel !== undefined) {
-        if (aiProviderRaw !== 'grok') {
-          process.stderr.write(`Unknown AI provider: ${aiProviderRaw}. Supported: grok\n`);
+      if (aiProviderRaw !== undefined) {
+        const candidate: AIOptions = {
+          provider: aiProviderRaw.toLowerCase() as AIProviderName,
+          apiKey: aiKey,
+          model: aiModel,
+          endpoint: aiEndpoint,
+        };
+        try {
+          createProvider(candidate);
+        } catch (err: unknown) {
+          process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
           // eslint-disable-next-line n/no-process-exit
           process.exit(1);
         }
-        aiOptions = { provider: aiProviderRaw as AIProviderName, apiKey: aiKey, model: aiModel };
+        aiOptions = candidate;
       }
 
       const onProgress = effectiveFormat === OutputFormat.TERMINAL

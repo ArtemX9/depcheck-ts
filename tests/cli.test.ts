@@ -57,6 +57,7 @@ let stderrSpy: ReturnType<typeof vi.spyOn>;
 let savedAiProvider: string | undefined;
 let savedAiKey: string | undefined;
 let savedAiModel: string | undefined;
+let savedAiEndpoint: string | undefined;
 
 beforeEach(() => {
   mockAnalyze.mockReset();
@@ -69,9 +70,11 @@ beforeEach(() => {
   savedAiProvider = process.env['DEPCHECK_AI_PROVIDER'];
   savedAiKey = process.env['DEPCHECK_AI_KEY'];
   savedAiModel = process.env['DEPCHECK_AI_MODEL'];
+  savedAiEndpoint = process.env['DEPCHECK_AI_ENDPOINT'];
   delete process.env['DEPCHECK_AI_PROVIDER'];
   delete process.env['DEPCHECK_AI_KEY'];
   delete process.env['DEPCHECK_AI_MODEL'];
+  delete process.env['DEPCHECK_AI_ENDPOINT'];
 });
 
 afterEach(() => {
@@ -81,6 +84,7 @@ afterEach(() => {
   if (savedAiProvider === undefined) { delete process.env['DEPCHECK_AI_PROVIDER']; } else { process.env['DEPCHECK_AI_PROVIDER'] = savedAiProvider; }
   if (savedAiKey === undefined) { delete process.env['DEPCHECK_AI_KEY']; } else { process.env['DEPCHECK_AI_KEY'] = savedAiKey; }
   if (savedAiModel === undefined) { delete process.env['DEPCHECK_AI_MODEL']; } else { process.env['DEPCHECK_AI_MODEL'] = savedAiModel; }
+  if (savedAiEndpoint === undefined) { delete process.env['DEPCHECK_AI_ENDPOINT']; } else { process.env['DEPCHECK_AI_ENDPOINT'] = savedAiEndpoint; }
 });
 
 // ---------------------------------------------------------------------------
@@ -403,12 +407,72 @@ describe('CLI – AI flags', () => {
     );
   });
 
-  it('passes undefined aiOptions when only some AI flags are provided (missing ai-key)', async () => {
+  it('calls process.exit(1) when --ai-provider grok is given without --ai-key', async () => {
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+    const stderrWrite = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
     await run(argv('--ai-provider', 'grok', '--ai-model', 'grok-4-1-fast'));
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    expect(stderrWrite).toHaveBeenCalledWith(expect.stringContaining('API key') as string);
+    exitSpy.mockRestore();
+    stderrWrite.mockRestore();
+  });
+
+  it('succeeds with --ai-provider openai (previously rejected as unknown)', async () => {
+    await run(argv('--ai-provider', 'openai', '--ai-key', 'key', '--ai-model', 'gpt-4'));
 
     expect(mockAnalyze).toHaveBeenCalledWith(
       expect.anything(),
-      undefined,
+      expect.objectContaining({ provider: 'openai', apiKey: 'key', model: 'gpt-4' }),
+    );
+  });
+
+  it('succeeds with --ai-provider gemini (previously rejected as unknown)', async () => {
+    await run(argv('--ai-provider', 'gemini', '--ai-key', 'key', '--ai-model', 'gemini-2.0-flash'));
+
+    expect(mockAnalyze).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ provider: 'gemini', apiKey: 'key', model: 'gemini-2.0-flash' }),
+    );
+  });
+
+  it('succeeds with --ai-provider ollama and no --ai-key', async () => {
+    await run(argv('--ai-provider', 'ollama', '--ai-model', 'llama3.2'));
+
+    expect(mockAnalyze).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ provider: 'ollama', apiKey: '', model: 'llama3.2' }),
+    );
+  });
+
+  it('calls process.exit(1) when --ai-provider ollama is given without --ai-model', async () => {
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+    const stderrWrite = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    await run(argv('--ai-provider', 'ollama'));
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    expect(stderrWrite).toHaveBeenCalledWith(expect.stringContaining('model') as string);
+    exitSpy.mockRestore();
+    stderrWrite.mockRestore();
+  });
+
+  it('passes --ai-endpoint through to aiOptions.endpoint', async () => {
+    await run(argv('--ai-provider', 'ollama', '--ai-model', 'llama3.2', '--ai-endpoint', 'http://my-host:11434'));
+
+    expect(mockAnalyze).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ endpoint: 'http://my-host:11434' }),
+    );
+  });
+
+  it('matches provider names case-insensitively', async () => {
+    await run(argv('--ai-provider', 'OLLAMA', '--ai-model', 'llama3.2'));
+
+    expect(mockAnalyze).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ provider: 'ollama' }),
     );
   });
 
@@ -417,7 +481,7 @@ describe('CLI – AI flags', () => {
     const stderrWrite = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
     await run(
-      argv('--ai-provider', 'openai', '--ai-key', 'key', '--ai-model', 'gpt-4'),
+      argv('--ai-provider', 'not-a-real-provider', '--ai-key', 'key', '--ai-model', 'some-model'),
     );
 
     expect(exitSpy).toHaveBeenCalledWith(1);
@@ -430,10 +494,10 @@ describe('CLI – AI flags', () => {
     const stderrWrite = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
     await run(
-      argv('--ai-provider', 'openai', '--ai-key', 'key', '--ai-model', 'gpt-4'),
+      argv('--ai-provider', 'not-a-real-provider', '--ai-key', 'key', '--ai-model', 'some-model'),
     );
 
-    expect(stderrWrite).toHaveBeenCalledWith(expect.stringContaining('openai') as string);
+    expect(stderrWrite).toHaveBeenCalledWith(expect.stringContaining('not-a-real-provider') as string);
     exitSpy.mockRestore();
     stderrWrite.mockRestore();
   });
@@ -463,6 +527,19 @@ describe('CLI – AI flags', () => {
     expect(mockAnalyze).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ apiKey: cliKey }),
+    );
+  });
+
+  it('reads --ai-endpoint from config file when no CLI flag is given', async () => {
+    mockLoadConfig.mockResolvedValue({
+      ai: { provider: 'ollama', model: 'llama3.2', endpoint: 'http://config-host:11434' },
+    });
+
+    await run(argv());
+
+    expect(mockAnalyze).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ endpoint: 'http://config-host:11434' }),
     );
   });
 });
@@ -514,6 +591,19 @@ describe('CLI – environment variables', () => {
     expect(mockAnalyze).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ apiKey: cliKey }),
+    );
+  });
+
+  it('uses DEPCHECK_AI_ENDPOINT when no --ai-endpoint flag is given', async () => {
+    vi.stubEnv('DEPCHECK_AI_PROVIDER', 'ollama');
+    vi.stubEnv('DEPCHECK_AI_MODEL', 'llama3.2');
+    vi.stubEnv('DEPCHECK_AI_ENDPOINT', 'http://env-host:11434');
+
+    await run(argv());
+
+    expect(mockAnalyze).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ endpoint: 'http://env-host:11434' }),
     );
   });
 
