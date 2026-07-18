@@ -8,6 +8,7 @@
 ![Grok AI](https://img.shields.io/badge/Grok_AI-000000?logo=xai&logoColor=white)
 ![OpenAI](https://img.shields.io/badge/OpenAI-412991?logo=openai&logoColor=white)
 ![Gemini](https://img.shields.io/badge/Gemini-8E75B2?logo=googlegemini&logoColor=white)
+![Ollama](https://img.shields.io/badge/Ollama-000000?logo=ollama&logoColor=white)
 
 TypeScript CLI tool and npm library that analyzes a project's npm dependencies for outdated packages, bundle size impact, license conflicts, and unused imports.
 
@@ -47,6 +48,12 @@ depcheck-ts --ai-provider openai --ai-key <OPENAI_API_KEY> --ai-model gpt-4o-min
 
 # AI-powered insights (Gemini)
 depcheck-ts --ai-provider gemini --ai-key <GEMINI_API_KEY> --ai-model gemini-2.0-flash
+
+# AI-powered insights (Ollama — local/self-hosted, no API key)
+depcheck-ts --ai-provider ollama --ai-model llama3.2
+
+# Ollama on a custom host/port (defaults to http://localhost:11434)
+depcheck-ts --ai-provider ollama --ai-model llama3.2 --ai-endpoint http://my-ollama-host:11434
 ```
 
 ## Example Output
@@ -73,6 +80,18 @@ Create a `.depcheck-ts.json` file in your project root to avoid repeating flags:
 }
 ```
 
+For Ollama, `apiKey` can be omitted entirely and `endpoint` is optional (defaults to `http://localhost:11434`):
+
+```json
+{
+  "ai": {
+    "provider": "ollama",
+    "model": "llama3.2",
+    "endpoint": "http://localhost:11434"
+  }
+}
+```
+
 CLI flags take precedence over the config file when both are present.
 
 ## Environment Variables
@@ -86,9 +105,10 @@ Environment variables are the lowest-priority configuration tier, sitting below 
 | `DEPCHECK_PATH` | `--path` | Project root path                                          |
 | `DEPCHECK_FORMAT` | `--format` | `terminal`, `json`, or `markdown`                          |
 | `DEPCHECK_CI` | `--ci` | `true` or `1` enables CI mode                              |
-| `DEPCHECK_AI_PROVIDER` | `--ai-provider` | `grok`, `openai`, or `gemini`                              |
-| `DEPCHECK_AI_KEY` | `--ai-key` | API key — recommended approach for secrets                 |
-| `DEPCHECK_AI_MODEL` | `--ai-model` | e.g. `grok-3-mini-fast`, `gpt-4o-mini`, `gemini-2.0-flash` |
+| `DEPCHECK_AI_PROVIDER` | `--ai-provider` | `grok`, `openai`, `gemini`, or `ollama`                     |
+| `DEPCHECK_AI_KEY` | `--ai-key` | API key — recommended approach for secrets. Not needed for `ollama`. |
+| `DEPCHECK_AI_MODEL` | `--ai-model` | e.g. `grok-3-mini-fast`, `gpt-4o-mini`, `gemini-2.0-flash`, `llama3.2` |
+| `DEPCHECK_AI_ENDPOINT` | `--ai-endpoint` | Endpoint URL, e.g. for a remote/custom Ollama host. Defaults to `http://localhost:11434` for `ollama`. |
 
 Example — set the AI key in the environment rather than on the command line:
 
@@ -110,6 +130,11 @@ export DEPCHECK_AI_PROVIDER=gemini
 export DEPCHECK_AI_KEY=...
 export DEPCHECK_AI_MODEL=gemini-2.0-flash
 depcheck-ts
+
+# Ollama (no key needed)
+export DEPCHECK_AI_PROVIDER=ollama
+export DEPCHECK_AI_MODEL=llama3.2
+depcheck-ts
 ```
 
 ## Programmatic API
@@ -127,10 +152,16 @@ console.log(report.unused);     // UnusedReport
 console.log(report.score);      // 0-100 health score
 console.log(report.errors);     // AnalyzerError[] — per-analyzer failures
 
-// With AI insights — provider can be 'grok', 'openai', or 'gemini'
+// With AI insights — provider can be 'grok', 'openai', 'gemini', or 'ollama'
 const reportWithAI = await analyze(
   { projectPath: './my-project' },
   { provider: 'grok', apiKey: process.env.XAI_API_KEY, model: 'grok-3-mini-fast' }
+);
+
+// Ollama needs no apiKey (pass '') and optionally an endpoint (defaults to http://localhost:11434)
+const reportWithOllama = await analyze(
+  { projectPath: './my-project' },
+  { provider: 'ollama', apiKey: '', model: 'llama3.2' }
 );
 
 console.log(reportWithAI.aiInsights?.outdated);   // { summary, priorityPackage, upgradeAdvice }
@@ -157,6 +188,7 @@ When an AI provider is configured, each analyzer sends its results to the LLM an
 | xAI Grok | `grok` | Uses `https://api.x.ai/v1/chat/completions` with structured JSON output |
 | OpenAI | `openai` | Uses `https://api.openai.com/v1/chat/completions` with structured JSON output |
 | Google Gemini | `gemini` | Uses `https://generativelanguage.googleapis.com` with structured JSON output |
+| Ollama | `ollama` | Local/self-hosted — no API key required. Uses `/api/chat` (default `http://localhost:11434`, configurable via `--ai-endpoint`) with structured JSON output. Requires the model to already be pulled (`ollama pull llama3.2`). |
 
 ## What It Checks
 
@@ -185,7 +217,6 @@ Score floor is 0.
 
 ## Roadmap
 
-- Support Ollama provider
 - Extra analyzer for vulnerabilities
 
 ## Contributing
